@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
+from api import app, db
 
-db = SQLAlchemy()
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
