@@ -11,6 +11,7 @@ class Document(db.Model):
     file_handle = db.Column(db.String(128), unique=True, nullable=False)
     acl = db.Column(db.JSON, nullable=False)
     deleter = db.Column(db.String(128), nullable=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
 
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)

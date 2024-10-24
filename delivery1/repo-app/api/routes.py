@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.controllers import OrganizationController, SessionController, DocumentController
+from api.controllers import OrganizationController, SessionController, DocumentController
 
 main_bp = Blueprint('main', __name__)
 

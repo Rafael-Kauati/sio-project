@@ -1,24 +1,6 @@
-from flask import Flask, request, jsonify
-from models import db, Document, Organization, Session, Subject
+from flask import jsonify, request
+from api.models import db, Document, Organization, Session, Subject
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///repository.db'
-db.init_app(app)
-
-class SubjectController:
-    @app.route('/subjects', methods=['POST'])
-    def create_subject():
-        data = request.json
-        subject = Subject(**data)
-        db.session.add(subject)
-        db.session.commit()
-        return jsonify({'message': 'Subject created successfully'}), 201
-
-    @app.route('/subjects', methods=['GET'])
-    def list_subjects():
-        subjects = Subject.query.all()
-        return jsonify([{'username': sub.username, 'full_name': sub.full_name} for sub in subjects]), 200
-    
 class DocumentController:
     @staticmethod
     def upload_document():
