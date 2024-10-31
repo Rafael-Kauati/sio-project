@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:latest
     restart: always
+    container_name: repo-db
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
