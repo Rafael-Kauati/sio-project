@@ -30,10 +30,41 @@ class OrganizationController:
     @staticmethod
     def create_organization():
         data = request.json
-        organization = Organization(**data)
-        db.session.add(organization)
-        db.session.commit()
-        return jsonify({'message': 'Organization created successfully'}), 201
+        org_name = data.get("name")
+        subject_data = data.get("subject")
+
+        if not org_name or not subject_data:
+            return jsonify({'error': 'Organization name and subject data are required'}), 400
+        
+        # Extract subject data
+        username = subject_data.get("username")
+        full_name = subject_data.get("full_name")
+        email = subject_data.get("email")
+        public_key = subject_data.get("public_key")
+        
+        if not username or not full_name or not email or not public_key:
+            return jsonify({'error': 'All subject fields are required'}), 400
+        
+        # Create organization
+        organization = Organization(name=org_name)
+        
+        # Create subject
+        subject = Subject(
+            username=username,
+            full_name=full_name,
+            email=email,
+            public_key=public_key
+        )
+        
+        # Save both to the database
+        try:
+            db.session.add(organization)
+            db.session.add(subject)
+            db.session.commit()
+            return jsonify({'message': 'Organization and subject created successfully'}), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
 
     @staticmethod
     def list_organizations():
