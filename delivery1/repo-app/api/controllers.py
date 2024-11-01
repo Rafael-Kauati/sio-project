@@ -108,4 +108,16 @@ class SessionController:
 
         db.session.add(session)
         db.session.commit()
-        return jsonify({'message': 'Session created successfully'}), 201
+
+        # Retorna o contexto da sessão criada
+        return jsonify({
+            'message': 'Session created successfully',
+            'session_context': {
+                'session_id': session.id,  # Ou qualquer campo que represente a sessão
+                'organization_name': organization.name,
+                'subject_username': subject.username,
+                'identifier': session.identifier,
+                # Adicione mais campos conforme necessário
+            }
+        }), 201
+
