@@ -1,6 +1,10 @@
 from flask import jsonify, request
 from api.models import db, Document, Organization, Session, Subject
 
+from flask import jsonify, request, send_file, abort
+from api.models import db, Document
+import os
+
 class DocumentController:
     @staticmethod
     def upload_document():
@@ -12,12 +16,17 @@ class DocumentController:
 
     @staticmethod
     def download_document(file_handle):
+        # Busca o documento no banco de dados
         document = Document.query.filter_by(file_handle=file_handle).first_or_404()
-        return jsonify({
-            'file_handle': document.file_handle,
-            'alg': document.alg,
-            'key': document.key
-        })
+
+        # Define o caminho do arquivo usando o `file_handle`
+        file_path = f"/path/to/documents/{document.file_handle}"  # Substitua com o caminho real
+
+        # Verifica se o arquivo existe no caminho especificado
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True)  # Envia o arquivo como anexo
+        else:
+            abort(404, description="File not found.")  # Retorna erro 404 se o arquivo não for encontrado
 
     @staticmethod
     def delete_document(file_handle):
@@ -25,6 +34,7 @@ class DocumentController:
         db.session.delete(document)
         db.session.commit()
         return jsonify({'message': 'Document deleted successfully'}), 204
+
 
 class OrganizationController:
     @staticmethod

@@ -1,5 +1,12 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app, send_from_directory
 from api.controllers import OrganizationController, SessionController, DocumentController
+from werkzeug.utils import secure_filename
+import os
+
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 main_bp = Blueprint('main', __name__)
 
@@ -15,13 +22,27 @@ def list_organizations_route():
 def create_session_route():
     return SessionController.create_session()
 
-@main_bp.route('/documents', methods=['POST'])
-def upload_document_route():
-    return DocumentController.upload_document()
+@main_bp.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
+        return jsonify({'message': 'File uploaded successfully', 'filename': filename}), 201
+    else:
+        return jsonify({'error': 'File type not allowed'}), 400
 
-@main_bp.route('/documents/<string:file_handle>', methods=['GET'])
-def download_file_route(file_handle):
-    return DocumentController.download_document(file_handle)
+# Endpoint para download de arquivo
+@main_bp.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    try:
+        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
 
 @main_bp.route('/documents/<string:file_handle>', methods=['DELETE'])
 def delete_document_route(file_handle):
