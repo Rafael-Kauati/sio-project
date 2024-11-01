@@ -13,3 +13,16 @@ curl -X POST http://127.0.0.1:5000/organizations \
 
 
 curl -X GET http://127.0.0.1:5000/organizations
+
+
+
+curl -X POST http://127.0.0.1:5000/sessions \
+-H "Content-Type: application/json" \
+-d '{
+    "username": "novo_usuario",
+    "organization_name": "Nova Organização",
+    "identifier": "sessao_unica_id",
+    "keys": {"chave": "valor"},
+    "password": "senha_segura",
+    "credentials": {"permissao": "admin"}
+}'

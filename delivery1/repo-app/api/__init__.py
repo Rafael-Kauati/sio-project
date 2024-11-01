@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 import os
 
 app = Flask(__name__)
@@ -7,6 +8,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user:password@localhost:54
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)  # Configura o Flask-Migrate com o aplicativo e o banco de dados
 
 # Import your models
 from .models import Document, Organization, Session, Subject

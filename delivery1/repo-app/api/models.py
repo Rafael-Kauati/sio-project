@@ -22,6 +22,13 @@ class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     identifier = db.Column(db.String(128), unique=True, nullable=False)
     keys = db.Column(db.JSON, nullable=False)
+    password = db.Column(db.String(128), nullable=False)  # Adicionando o campo password
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    credentials = db.Column(db.JSON, nullable=False)  # Credenciais associadas
+    organization = db.relationship('Organization', backref='sessions')
+    subject = db.relationship('Subject', backref='sessions')
+
 
 class Subject(db.Model):
     id = db.Column(db.Integer, primary_key=True)

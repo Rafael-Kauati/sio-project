@@ -75,7 +75,27 @@ class SessionController:
     @staticmethod
     def create_session():
         data = request.json
-        session = Session(**data)
+
+        # Busca a organização pelo nome
+        organization = Organization.query.filter_by(name=data.get("organization_name")).first()
+        if not organization:
+            abort(404, description="Organization not found")
+
+        # Busca o subject pelo username
+        subject = Subject.query.filter_by(username=data.get("username")).first()
+        if not subject:
+            abort(404, description="Subject not found")
+
+        # Cria uma nova sessão
+        session = Session(
+            identifier=data.get("identifier"),
+            keys=data.get("keys"),
+            password=data.get("password"),
+            credentials=data.get("credentials"),
+            organization=organization,
+            subject=subject
+        )
+
         db.session.add(session)
         db.session.commit()
         return jsonify({'message': 'Session created successfully'}), 201
