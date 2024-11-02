@@ -83,6 +83,58 @@ class SessionController:
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
 
+    @staticmethod
+    def list_session_roles(session_key):
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+        
+        roles = [role.name for role in session.roles]
+        return jsonify({"roles": roles}), 200
+
+    
+    @staticmethod
+    def create_session():
+        data = request.json
+        session_key = data.get("session_key")
+        role = data.get("role")
+
+        # Busca a organização pelo nome
+        organization_name = data.get("organization_name")
+        organization = Organization.query.filter_by(name=organization_name).first()
+        if not organization:
+            return jsonify({"error": "Organization not found"}), 404
+
+        # Busca o subject pelo username
+        subject = Subject.query.filter_by(username=data.get("username")).first()
+        if not subject:
+            abort(404, description="Subject not found")
+
+        # Cria uma nova sessão
+        new_session = Session(
+            identifier=data.get("identifier"),
+            session_key=data.get("session_key"),
+            password=data.get("password"),
+            credentials=data.get("credentials"),
+            organization_id=organization.id,  # Associa à organização encontrada
+            subject=subject
+        )
+
+        db.session.add(new_session)
+        db.session.commit()
+
+        # Retorna o contexto da sessão criada
+        return jsonify({
+            'message': 'Session created successfully',
+            'session_context': {
+                'session_id': new_session.id,
+                'organization_name': organization.name,
+                'subject_username': subject.username,
+                'session_key': new_session.session_key,
+                'identifier': new_session.identifier,
+                # Adicione mais campos conforme necessário
+            }
+        }), 201
 
     @staticmethod
     def assume_role():
@@ -132,47 +184,3 @@ class SessionController:
         else:
             abort(400, description="Role not assigned to the session")
         '''
-    
-    @staticmethod
-    def create_session():
-        data = request.json
-        session_key = data.get("session_key")
-        role = data.get("role")
-
-        # Busca a organização pelo nome
-        organization_name = data.get("organization_name")
-        organization = Organization.query.filter_by(name=organization_name).first()
-        if not organization:
-            return jsonify({"error": "Organization not found"}), 404
-
-        # Busca o subject pelo username
-        subject = Subject.query.filter_by(username=data.get("username")).first()
-        if not subject:
-            abort(404, description="Subject not found")
-
-        # Cria uma nova sessão
-        new_session = Session(
-            identifier=data.get("identifier"),
-            session_key=data.get("session_key"),
-            password=data.get("password"),
-            credentials=data.get("credentials"),
-            organization_id=organization.id,  # Associa à organização encontrada
-            subject=subject
-        )
-
-        db.session.add(new_session)
-        db.session.commit()
-
-        # Retorna o contexto da sessão criada
-        return jsonify({
-            'message': 'Session created successfully',
-            'session_context': {
-                'session_id': new_session.id,
-                'organization_name': organization.name,
-                'subject_username': subject.username,
-                'session_key': new_session.session_key,
-                'identifier': new_session.identifier,
-                # Adicione mais campos conforme necessário
-            }
-        }), 201
-

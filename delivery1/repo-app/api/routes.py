@@ -33,6 +33,12 @@ def assume_role_route():
 def release_role_route():
     return SessionController.release_role()
 
+# Endpoint para listar as roles da sessão
+@main_bp.route('/sessions/<string:session_key>/roles', methods=['GET'])
+def list_session_roles_route(session_key):
+    return SessionController.list_session_roles(session_key)
+
+
 # Endpoint de upload de arquivo
 @main_bp.route('/upload', methods=['POST'])
 def upload_file():
