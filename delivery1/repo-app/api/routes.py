@@ -103,3 +103,16 @@ def add_subject_route():
 
     result = SessionController.add_subject_to_organization(session_key, username, name, email, public_key)
     return jsonify(result), 201 if "id" in result else 400
+
+@main_bp.route('/add_document', methods=['POST'])
+def add_document_route():
+    session_key = request.form.get("session_key")
+    document_name = request.form.get("document_name")
+    file = request.files.get("file")
+
+    if not all([session_key, document_name, file]):
+        return jsonify({"error": "Todos os campos são obrigatórios: session_key, document_name, e o arquivo"}), 400
+
+    # Chama o controller para salvar o documento
+    result = SessionController.upload_document_to_organization(session_key, document_name, file)
+    return jsonify(result), 201 if "id" in result else 400

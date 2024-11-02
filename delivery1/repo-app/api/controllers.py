@@ -1,6 +1,9 @@
 from flask import jsonify, request, send_file, abort
 from api.models import db, Document, Organization, Session, Subject, Role
 from sqlalchemy import text
+from datetime import datetime
+from werkzeug.utils import secure_filename
+from . import app  
 import os
 
 class DocumentController:
@@ -114,6 +117,72 @@ class SessionController:
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
+    
+
+    @staticmethod
+    def upload_document_to_organization(session_key, document_name, file):
+        # Verifica a sessão e a organização correspondente
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
+        
+        organization = session.organization
+        subject = session.subject
+
+        # Salva o arquivo de forma segura
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)  # Atualização aqui
+        file.save(filepath)
+
+        # Cria e armazena o novo documento
+        new_document = Document(
+            document_handle=document_name,
+            name=filename,
+            create_date=datetime.now(),
+            creator=subject.username,
+            file_handle=filepath,
+            acl={},
+            organization_id=organization.id
+        )
+
+        db.session.add(new_document)
+        db.session.commit()
+
+        return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
+
+    
+    @staticmethod
+    def add_document_to_organization(session_key, document_name, file_handle):
+        # Busca a sessão pela session_key fornecida
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return {"error": "Sessão não encontrada."}
+
+        # Obtém a organização e o subject associados à sessão
+        organization = session.organization
+        subject = session.subject
+        if not organization or not subject:
+            return {"error": "Organização ou Subject associado à sessão não encontrado."}
+
+        # Cria um novo Document associado à organização e ao subject como criador
+        new_document = Document(
+            document_handle=f"handle_{datetime.utcnow().timestamp()}",
+            name=document_name,
+            create_date=datetime.utcnow(),
+            creator=subject.username,  # Nome do usuário associado ao Subject como criador
+            file_handle=file_handle,
+            acl={},  # ACL padrão ou configurável
+            organization_id=organization.id
+        )
+
+        # Adiciona e confirma a transação
+        try:
+            db.session.add(new_document)
+            db.session.commit()
+            return {"id": new_document.id, "message": "Documento adicionado com sucesso."}
+        except Exception as e:
+            db.session.rollback()
+            return {"error": f"Ocorreu um erro ao adicionar o documento: {str(e)}"}
 
     @staticmethod
     def add_subject_to_organization(session_key, username, name, email, public_key):
