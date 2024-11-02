@@ -129,3 +129,11 @@ def get_document_metadata_route():
     result = SessionController.get_document_metadata(session_key, document_name)
 
     return jsonify(result)
+
+
+@main_bp.route('/download_document/<session_key>/<document_name>', methods=['GET'])
+def download_document_route(session_key, document_name):
+    result = SessionController.download_document(session_key, document_name)
+    if result is None:
+        return abort(404)  # Documento não encontrado ou erro na sessão
+    return result

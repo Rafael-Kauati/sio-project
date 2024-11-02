@@ -118,6 +118,34 @@ class SessionController:
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
+
+    @staticmethod
+    def download_document(session_key, document_name):
+        # Verifica a sessão e a organização correspondente
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return None  # Sessão inválida ou não encontrada
+        
+        organization = session.organization
+
+        # Busca o documento na organização especificada
+        document = Document.query.filter_by(
+            organization_id=organization.id, document_handle=document_name
+        ).first()
+
+        if not document:
+            return None  # Documento não encontrado
+
+        # Retorna o arquivo para download
+        file_path = document.file_handle
+        try:
+            return send_file(file_path, as_attachment=True)
+        except FileNotFoundError:
+            return None  # Arquivo não encontrado
+        except Exception as e:
+            print(f"Erro ao enviar arquivo: {e}")
+            return None
+
     
     @staticmethod
     def get_document_metadata(session_key, document_name):

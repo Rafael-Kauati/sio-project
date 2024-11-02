@@ -60,6 +60,9 @@ curl -X GET "http://localhost:5000/document/metadata?document_name=animegurl" \
   200
 ]
 
+curl -X GET http://localhost:5000/download_document/key/animegurl --output animegurl.jpg
+
+
 
 curl -X POST -F "file=@./filetest.txt" http://localhost:5000/upload
 
