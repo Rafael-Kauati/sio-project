@@ -22,6 +22,7 @@ from .models import Document, Organization, Session, Subject
 
 # Create the tables in the database
 with app.app_context():
+    #db.drop_all()
     db.create_all()  # This will create all tables defined in your models
 
     # Verify if the organization table exists

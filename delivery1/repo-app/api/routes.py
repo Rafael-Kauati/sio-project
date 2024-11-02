@@ -10,6 +10,7 @@ def allowed_file(filename):
 
 main_bp = Blueprint('main', __name__)
 
+# Endpoints de organizações
 @main_bp.route('/organizations', methods=['POST'])
 def create_organization_route():
     return OrganizationController.create_organization()
@@ -18,10 +19,21 @@ def create_organization_route():
 def list_organizations_route():
     return OrganizationController.list_organizations()
 
+# Endpoint de criação de sessão
 @main_bp.route('/sessions', methods=['POST'])
 def create_session_route():
     return SessionController.create_session()
 
+# Endpoints de role
+@main_bp.route('/sessions/assume_role', methods=['POST'])
+def assume_role_route():
+    return SessionController.assume_role()
+
+@main_bp.route('/sessions/release_role', methods=['POST'])
+def release_role_route():
+    return SessionController.release_role()
+
+# Endpoint de upload de arquivo
 @main_bp.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -44,6 +56,7 @@ def download_file(filename):
     except FileNotFoundError:
         return jsonify({'error': 'File not found'}), 404
 
+# Endpoint de deleção de documento
 @main_bp.route('/documents/<string:file_handle>', methods=['DELETE'])
 def delete_document_route(file_handle):
     return DocumentController.delete_document(file_handle)

@@ -1,12 +1,12 @@
 curl -X POST http://127.0.0.1:5000/organizations \
           -H "Content-Type: application/json" \
           -d '{
-          "name": "deti",
+          "name": "onu",
           "subject": {
-              "username": "deti",
-              "full_name": "deti",
-              "email": "deti@deti.com",
-              "public_key": "detieky"
+              "username": "user",
+              "full_name": "username",
+              "email": "user@gmail.com",
+              "public_key": "kei"
           }
       }'
 
@@ -18,10 +18,10 @@ curl -X GET http://127.0.0.1:5000/organizations
 curl -X POST http://127.0.0.1:5000/sessions \
 -H "Content-Type: application/json" \
 -d '{
-    "username": "deti",
-    "organization_name": "deti",
-    "identifier": "sessao_unica_deti",
-    "keys": {"public_key": "detieky"},
+    "username": "user",
+    "organization_name": "onu",
+    "identifier": "onusession",
+    "session_key": "key",
     "password": "password",
     "credentials": {"permissao": "admin"}
 }'

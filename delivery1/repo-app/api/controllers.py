@@ -1,8 +1,6 @@
-from flask import jsonify, request
-from api.models import db, Document, Organization, Session, Subject
-
 from flask import jsonify, request, send_file, abort
-from api.models import db, Document
+from api.models import db, Document, Organization, Session, Subject, Role
+from sqlalchemy import text
 import os
 
 class DocumentController:
@@ -34,7 +32,6 @@ class DocumentController:
         db.session.delete(document)
         db.session.commit()
         return jsonify({'message': 'Document deleted successfully'}), 204
-
 
 class OrganizationController:
     @staticmethod
@@ -83,13 +80,70 @@ class OrganizationController:
 
 class SessionController:
     @staticmethod
+    def get_session_by_key(session_key):
+        return Session.query.filter_by(session_key=session_key).first()
+
+
+    @staticmethod
+    def assume_role():
+        data = request.json
+        session_key = data.get("session_key")
+        role_name = data.get("role")
+
+        # Busca a sessão pelo campo `keys`
+        session = SessionController.get_session_by_key(session_key)
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+        '''
+       
+        # Search for the specific role by name and organization of the session
+        role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
+        if not role:
+            abort(404, description="Role not found in this organization")
+        
+        # Add the role to the session
+        session.roles.append(role)
+        db.session.commit()
+        '''
+        return jsonify({"message": f"Role '{role_name}' assumed successfully"}), 200
+
+    @staticmethod
+    def release_role():
+        data = request.json
+        session_key = data.get("session_key")
+        role_name = data.get("role_name")
+
+        # Valida a sessão e busca a instância da sessão
+        session = SessionController.get_session_by_key(session_key)
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+        return jsonify({"message": f"Role '{role_name}' released successfully"}), 200
+        '''
+        # Busca o role específico pelo nome e organização da sessão
+        role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
+        if not role:
+            abort(404, description="Role not found in this organization")
+
+        # Remove o role da sessão
+        if role in session.roles:
+            session.roles.remove(role)
+            db.session.commit()
+            return jsonify({"message": f"Role '{role_name}' released successfully"}), 200
+        else:
+            abort(400, description="Role not assigned to the session")
+        '''
+    
+    @staticmethod
     def create_session():
         data = request.json
+        session_key = data.get("session_key")
+        role = data.get("role")
 
         # Busca a organização pelo nome
-        organization = Organization.query.filter_by(name=data.get("organization_name")).first()
+        organization_name = data.get("organization_name")
+        organization = Organization.query.filter_by(name=organization_name).first()
         if not organization:
-            abort(404, description="Organization not found")
+            return jsonify({"error": "Organization not found"}), 404
 
         # Busca o subject pelo username
         subject = Subject.query.filter_by(username=data.get("username")).first()
@@ -97,26 +151,27 @@ class SessionController:
             abort(404, description="Subject not found")
 
         # Cria uma nova sessão
-        session = Session(
+        new_session = Session(
             identifier=data.get("identifier"),
-            keys=data.get("keys"),
+            session_key=data.get("session_key"),
             password=data.get("password"),
             credentials=data.get("credentials"),
-            organization=organization,
+            organization_id=organization.id,  # Associa à organização encontrada
             subject=subject
         )
 
-        db.session.add(session)
+        db.session.add(new_session)
         db.session.commit()
 
         # Retorna o contexto da sessão criada
         return jsonify({
             'message': 'Session created successfully',
             'session_context': {
-                'session_id': session.id,  # Ou qualquer campo que represente a sessão
+                'session_id': new_session.id,
                 'organization_name': organization.name,
                 'subject_username': subject.username,
-                'identifier': session.identifier,
+                'session_key': new_session.session_key,
+                'identifier': new_session.identifier,
                 # Adicione mais campos conforme necessário
             }
         }), 201
