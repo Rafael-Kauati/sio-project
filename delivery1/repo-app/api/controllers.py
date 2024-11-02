@@ -5,6 +5,38 @@ import os
 
 class DocumentController:
     @staticmethod
+    def get_documents_by_session_key(session_key, username=None, date_str=None, filter_type='all'):
+        # Encontre a sessão com base na session_key
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return {"error": "Session not found"}, 404
+
+        organization = session.organization
+
+        # Crie a consulta para obter documentos
+        query = Document.query.filter_by(organization_id=organization.id)
+
+        if username:
+            subject = Subject.query.filter_by(username=username).first()
+            if subject:
+                query = query.filter_by(creator=subject.username)  # Use o username em vez do id
+
+        if date_str:
+            # Converta a data de string para objeto datetime
+            from datetime import datetime
+            date_obj = datetime.strptime(date_str, '%d-%m-%Y')
+            
+            if filter_type == 'more_recent':
+                query = query.filter(Document.create_date > date_obj)
+            elif filter_type == 'older':
+                query = query.filter(Document.create_date < date_obj)
+            elif filter_type == 'equal':
+                query = query.filter(Document.create_date == date_obj)
+
+        documents = query.all()
+
+        return [doc.to_dict() for doc in documents]  # Suponha que você tenha um método to_dict em Document
+    @staticmethod
     def upload_document():
         data = request.json
         document = Document(**data)

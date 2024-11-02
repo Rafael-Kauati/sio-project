@@ -46,6 +46,19 @@ def get_subjects_by_session_key_route(session_key):
 def get_roles_by_session_key_route(session_key):
     return SessionController.get_roles_by_session_key(session_key)
 
+@main_bp.route('/sessions/<string:session_key>/documents', methods=['GET'])
+def get_documents_by_session_key_route(session_key):
+    # Obtém parâmetros da consulta
+    username = request.args.get('username')
+    date_str = request.args.get('date')
+    filter_type = request.args.get('filter_type', 'all')  # 'all', 'more_recent', 'older', etc.
+
+    # Chama o controlador para obter documentos
+    documents = DocumentController.get_documents_by_session_key(session_key, username, date_str, filter_type)
+    return jsonify(documents), 200
+
+
+
 # Endpoint de upload de arquivo
 @main_bp.route('/upload', methods=['POST'])
 def upload_file():
