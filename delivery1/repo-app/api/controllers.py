@@ -82,6 +82,26 @@ class SessionController:
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
+
+    @staticmethod
+    def get_roles_by_session_key(session_key):
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+        
+        organization = session.organization  # Obtém a organização associada à sessão
+        if not organization:
+            return jsonify({"error": "Organization not found"}), 404
+        
+        # Obter todos os roles associados à organização
+        roles = Role.query.filter_by(organization_id=organization.id).all()
+        
+        return jsonify([{
+            'id': role.id, 
+            'name': role.name, 
+            'permissions': role.permissions
+        } for role in roles]), 200
+
     @staticmethod
     def get_subjects_by_session_key(session_key):
         session = Session.query.filter_by(session_key=session_key).first()
