@@ -82,7 +82,24 @@ def download_file(filename):
     except FileNotFoundError:
         return jsonify({'error': 'File not found'}), 404
 
+###    Authorized API
+
 # Endpoint de deleção de documento
 @main_bp.route('/documents/<string:file_handle>', methods=['DELETE'])
 def delete_document_route(file_handle):
     return DocumentController.delete_document(file_handle)
+
+@main_bp.route('/add_subject', methods=['POST'])
+def add_subject_route():
+    data = request.json
+    session_key = data.get("session_key")
+    username = data.get("username")
+    name = data.get("name")
+    email = data.get("email")
+    public_key = data.get("public_key")
+
+    if not all([session_key, username, name, email, public_key]):
+        return jsonify({"error": "Todos os campos são obrigatórios: session_key, username, name, email, public_key"}), 400
+
+    result = SessionController.add_subject_to_organization(session_key, username, name, email, public_key)
+    return jsonify(result), 201 if "id" in result else 400

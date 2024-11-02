@@ -116,6 +116,38 @@ class SessionController:
         return Session.query.filter_by(session_key=session_key).first()
 
     @staticmethod
+    def add_subject_to_organization(session_key, username, name, email, public_key):
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return {"error": "Sessão não encontrada."}
+
+        organization = session.organization
+        if not organization:
+            return {"error": "Organização associada à sessão não encontrada."}
+
+        # Verifique se o username já existe na organização
+        existing_subject = Subject.query.filter_by(username=username).first()
+        if existing_subject:
+            return {"error": "Um usuário com esse username já existe."}
+
+        # Crie um novo Subject e o associe à organização
+        new_subject = Subject(
+            username=username,
+            full_name=name,
+            email=email,
+            public_key=public_key
+        )
+
+        # Adicione e confirme a transação
+        try:
+            db.session.add(new_subject)
+            db.session.commit()
+            return {"id": new_subject.id, "message": "Sujeito adicionado com sucesso."}
+        except Exception as e:
+            db.session.rollback()
+            return {"error": f"Ocorreu um erro ao adicionar o sujeito: {str(e)}"}
+
+    @staticmethod
     def get_roles_by_session_key(session_key):
         session = Session.query.filter_by(session_key=session_key).first()
         if not session:
