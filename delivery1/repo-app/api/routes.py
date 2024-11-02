@@ -38,6 +38,10 @@ def release_role_route():
 def list_session_roles_route(session_key):
     return SessionController.list_session_roles(session_key)
 
+@main_bp.route('/sessions/<string:session_key>/subjects', methods=['GET'])
+def get_subjects_by_session_key_route(session_key):
+    return SessionController.get_subjects_by_session_key(session_key)
+
 
 # Endpoint de upload de arquivo
 @main_bp.route('/upload', methods=['POST'])
