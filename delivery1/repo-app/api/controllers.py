@@ -1,6 +1,7 @@
 from flask import jsonify, request, send_file, abort
 from api.models import db, Document, Organization, Session, Subject, Role
 from sqlalchemy import text
+import mimetypes
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from . import app  
@@ -118,6 +119,53 @@ class SessionController:
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
     
+    @staticmethod
+    def get_document_metadata(session_key, document_name):
+        # Verifica a sessão e a organização correspondente
+        session = Session.query.filter_by(session_key=session_key).first()
+        if not session:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
+        
+        organization = session.organization
+
+        # Busca o documento na organização especificada
+        document = Document.query.filter_by(
+            organization_id=organization.id, document_handle=document_name
+        ).first()
+
+        if not document:
+            return {"error": "Documento não encontrado na organização"}, 404
+
+        # Detecta o tipo MIME do arquivo para determinar o modo de leitura
+        file_path = document.file_handle
+        mime_type, _ = mimetypes.guess_type(file_path)
+
+        try:
+            if mime_type and mime_type.startswith("text"):
+                # Ler como texto se o MIME for texto
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    file_content = file.read()
+            else:
+                # Ler como binário se não for texto
+                with open(file_path, 'rb') as file:
+                    file_content = file.read()
+        except FileNotFoundError:
+            return {"error": "Arquivo não encontrado no servidor"}, 404
+        except IOError:
+            return {"error": "Erro ao ler o arquivo"}, 500
+
+        # Retorna os metadados do documento e seu conteúdo
+        metadata = {
+            "document_id": document.id,
+            "document_name": document.name,
+            "document_handle": document.document_handle,
+            "create_date": document.create_date,
+            "creator": document.creator,
+            "organization_id": document.organization_id,
+            #"content": file_content if isinstance(file_content, str) else file_content.hex()  
+        }
+
+        return {"metadata": metadata}, 200
 
     @staticmethod
     def upload_document_to_organization(session_key, document_name, file):

@@ -116,3 +116,16 @@ def add_document_route():
     # Chama o controller para salvar o documento
     result = SessionController.upload_document_to_organization(session_key, document_name, file)
     return jsonify(result), 201 if "id" in result else 400
+
+@main_bp.route('/document/metadata', methods=['GET'])
+def get_document_metadata_route():
+    session_key = request.headers.get('session_key')
+    document_name = request.args.get('document_name')
+    
+    if not document_name:
+        return jsonify({"error": "O parâmetro 'document_name' é obrigatório"}), 400
+
+    # Chama a função do controlador para buscar os metadados e o conteúdo do documento
+    result = SessionController.get_document_metadata(session_key, document_name)
+
+    return jsonify(result)
