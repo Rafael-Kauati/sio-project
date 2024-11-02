@@ -44,6 +44,21 @@ curl -X POST http://localhost:5000/add_document \
 curl -X GET "http://localhost:5000/document/metadata?document_name=animegurl1" \
      -H "session_key: key"
 
+curl -X GET "http://localhost:5000/document/metadata?document_name=animegurl" \
+               -H "session_key: key"
+[
+  {
+    "metadata": {
+      "create_date": "Sat, 02 Nov 2024 15:35:54 GMT", 
+      "creator": "user", 
+      "document_handle": "animegurl", 
+      "document_id": 1, 
+      "document_name": "animegurl1.jpg", 
+      "organization_id": 1
+    }
+  }, 
+  200
+]
 
 
 curl -X POST -F "file=@./filetest.txt" http://localhost:5000/upload
