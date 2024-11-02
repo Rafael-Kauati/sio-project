@@ -118,6 +118,39 @@ class SessionController:
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
+        
+    @staticmethod
+    def delete_document_from_organization(session_key, document_name):
+        # Obter a sessão associada à session key
+        session = db.session.query(Session).filter_by(session_key=session_key).first()
+        if not session:
+            return {"success": False, "message": "Invalid session key or session not found"}
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return {"success": False, "message": "No organization associated with this session"}
+
+        # Buscar o documento na base de dados
+        document = db.session.query(Document).filter_by(
+            organization_id=organization.id, document_handle=document_name
+        ).first()
+
+        if document:
+            # Deletar o arquivo do sistema de arquivos
+            try:
+                file_path = document.file_handle  # Usar o caminho do arquivo armazenado
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+                # Deletar o documento da base de dados
+                db.session.delete(document)
+                db.session.commit()
+                return {"success": True, "message": "Document deleted successfully"}
+            except Exception as e:
+                return {"success": False, "message": str(e)}
+        else:
+            return {"success": False, "message": "Document not found"}
 
     @staticmethod
     def download_document(session_key, document_name):

@@ -84,10 +84,7 @@ def download_file(filename):
 
 ###    Authorized API
 
-# Endpoint de deleção de documento
-@main_bp.route('/documents/<string:file_handle>', methods=['DELETE'])
-def delete_document_route(file_handle):
-    return DocumentController.delete_document(file_handle)
+
 
 @main_bp.route('/add_subject', methods=['POST'])
 def add_subject_route():
@@ -137,3 +134,11 @@ def download_document_route(session_key, document_name):
     if result is None:
         return abort(404)  # Documento não encontrado ou erro na sessão
     return result
+
+@main_bp.route('/delete_document/<session_key>/<string:document_name>', methods=['DELETE'])
+def delete_document_route(session_key, document_name):
+    if not session_key:
+        return jsonify({"error": "Session key is required"}), 400
+
+    result = SessionController.delete_document_from_organization(session_key, document_name)
+    return jsonify(result), 200 if result['success'] else 400
