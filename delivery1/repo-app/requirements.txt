@@ -6,3 +6,5 @@ python-dotenv==0.19.2
 psycopg2-binary
 requests
 Flask-Migrate
+flasgger
+flask-restx

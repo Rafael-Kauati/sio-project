@@ -10,7 +10,9 @@ def allowed_file(filename):
 
 main_bp = Blueprint('main', __name__)
 
-# Endpoints de organizações
+#######################################################################
+#################### Anonymous API ####################################
+#######################################################################
 @main_bp.route('/organizations', methods=['POST'])
 def create_organization_route():
     return OrganizationController.create_organization()
@@ -32,7 +34,9 @@ def download_file(filename):
     except FileNotFoundError:
         return jsonify({'error': 'File not found'}), 404
 
-# Endpoints de role
+#######################################################################
+#################### Authenticated API ################################
+#######################################################################
 @main_bp.route('/sessions/assume_role', methods=['POST'])
 def assume_role_route():
     return SessionController.assume_role()
@@ -68,10 +72,9 @@ def get_documents_by_session_key_route(session_key):
 
 
 
-
-###    Authorized API
-
-
+#######################################################################
+#################### Authorized API ###################################
+#######################################################################
 
 @main_bp.route('/add_subject', methods=['POST'])
 def add_subject_route():
