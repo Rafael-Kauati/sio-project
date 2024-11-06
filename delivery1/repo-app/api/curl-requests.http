@@ -18,19 +18,19 @@ curl -X GET http://127.0.0.1:5000/organizations
 curl -X POST http://127.0.0.1:5000/sessions \
 -H "Content-Type: application/json" \
 -d '{
-    "username": "user",
-    "organization_name": "onu",
-    "identifier": "onusession",
-    "session_key": "key",
-    "password": "password",
+    "username": "user2",
+    "organization_name": "onu2",
+    "identifier": "onusession2",
+    "session_key": "key2",
+    "password": "password2",
     "credentials": {"permissao": "admin"}
 }'
 
 
 curl -X POST http://localhost:5000/add_document \
-              -F "session_key=key" \
-              -F "document_name=animegurl" \
-              -F "file=@./animegurl1.jpg"
+              -F "session_key=key2" \
+              -F "document_name=animegurl2" \
+              -F "file=@./animegurl2.jpg"
 
 [
   {
@@ -64,7 +64,6 @@ curl -X GET http://localhost:5000/download_document/key/animegurl --output anime
 
 
 
-curl -X POST -F "file=@./filetest.txt" http://localhost:5000/upload
 
 curl -O http://localhost:5000/download/filetest.txt
 

@@ -24,6 +24,14 @@ def list_organizations_route():
 def create_session_route():
     return SessionController.create_session()
 
+# Endpoint para download de arquivo
+@main_bp.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    try:
+        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
+
 # Endpoints de role
 @main_bp.route('/sessions/assume_role', methods=['POST'])
 def assume_role_route():
@@ -59,28 +67,7 @@ def get_documents_by_session_key_route(session_key):
 
 
 
-# Endpoint de upload de arquivo
-@main_bp.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-        return jsonify({'message': 'File uploaded successfully', 'filename': filename}), 201
-    else:
-        return jsonify({'error': 'File type not allowed'}), 400
 
-# Endpoint para download de arquivo
-@main_bp.route('/download/<filename>', methods=['GET'])
-def download_file(filename):
-    try:
-        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
-    except FileNotFoundError:
-        return jsonify({'error': 'File not found'}), 404
 
 ###    Authorized API
 
