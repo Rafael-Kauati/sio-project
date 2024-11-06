@@ -66,6 +66,7 @@ def parse_args(state):
         state['REP_ADDRESS'] = args.repo[0]
         logger.info('Overriding REP_ADDRESS from command line')
 
+    return state
 
 def save(state):
     state_dir = os.path.join(os.path.expanduser('~'), '.sio')
@@ -83,6 +84,14 @@ state = load_state()
 state = parse_env(state)
 state = parse_args(state)
 
+if 'REP_ADDRESS' not in state:
+  logger.error("Must define Repository Address")
+  sys.exit(-1)
+
+if 'REP_PUB_KEY' not in state:
+  logger.error("Must set the Repository Public Key")
+  sys.exit(-1)
+  
 """ Do something """
 req = requests.get(f'http://{state['REP_ADDRESS']}/organization/list')
 print(req.json)
