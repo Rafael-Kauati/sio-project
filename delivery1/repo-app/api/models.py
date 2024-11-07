@@ -1,7 +1,8 @@
+
 from flask_sqlalchemy import SQLAlchemy
 from api import app, db
+from datetime import datetime, timezone
 
-# Define the association table for Session and Role
 session_roles = db.Table('session_roles',
     db.Column('session_id', db.Integer, db.ForeignKey('session.id'), primary_key=True),
     db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True)
@@ -41,13 +42,15 @@ class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     identifier = db.Column(db.String(128), unique=True, nullable=False)
     session_key = db.Column(db.String(428), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     password = db.Column(db.String(128), nullable=False)  # Adicionando o campo password
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
     credentials = db.Column(db.JSON, nullable=False)  # Credenciais associadas
     organization = db.relationship('Organization', backref='sessions')
     subject = db.relationship('Subject', backref='sessions')
-    roles = db.relationship('Role', secondary=session_roles, backref='sessions')  # Use the defined session_roles table
+    roles = db.relationship('Role', secondary=session_roles, backref='sessions')
+    
 
 class Subject(db.Model):
     id = db.Column(db.Integer, primary_key=True)

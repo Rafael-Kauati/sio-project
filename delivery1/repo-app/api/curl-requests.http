@@ -6,7 +6,7 @@ curl -X POST http://127.0.0.1:5000/organizations \
               "username": "user",
               "full_name": "username",
               "email": "user@gmail.com",
-              "public_key": "kei"
+              "public_key": "key"
           }
       }'
 
@@ -18,19 +18,19 @@ curl -X GET http://127.0.0.1:5000/organizations
 curl -X POST http://127.0.0.1:5000/sessions \
 -H "Content-Type: application/json" \
 -d '{
-    "username": "user2",
-    "organization_name": "onu2",
-    "identifier": "onusession2",
-    "session_key": "key2",
-    "password": "password2",
+    "username": "user",
+    "organization_name": "onu",
+    "identifier": "onusession",
+    "session_key": "key",
+    "password": "password",
     "credentials": {"permissao": "admin"}
 }'
 
 
 curl -X POST http://localhost:5000/add_document \
-              -F "session_key=key2" \
-              -F "document_name=animegurl2" \
-              -F "file=@./animegurl2.jpg"
+              -F "session_key=key" \
+              -F "document_name=windown" \
+              -F "file=@./windown.jpg"
 
 [
   {

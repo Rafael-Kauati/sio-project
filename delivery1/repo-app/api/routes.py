@@ -122,7 +122,7 @@ def get_document_metadata_route():
 def download_document_route(session_key, document_name):
     result = SessionController.download_document(session_key, document_name)
     if result is None:
-        return abort(404)  # Documento não encontrado ou erro na sessão
+        return jsonify({"error": "Document not found in organization"}), 404  # Documento não encontrado ou erro na sessão
     return result
 
 @main_bp.route('/delete_document/<session_key>/<string:document_name>', methods=['DELETE'])

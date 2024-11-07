@@ -4,8 +4,20 @@ from sqlalchemy import text
 import mimetypes
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from .utils import is_session_valid
 from . import app  
 import os
+
+
+def check_session(key):
+    session = Session.query.filter_by(session_key=key).first()
+
+    # Verifica se a sessão existe e se ainda é válida
+    if not session or not is_session_valid(session):
+        return None
+
+    # A sessão é válida, pode continuar com o processamento normal
+    return session  # Ou qualquer lógica que continua a partir daqui
 
 class DocumentController:
     @staticmethod
@@ -122,9 +134,9 @@ class SessionController:
     @staticmethod
     def delete_document_from_organization(session_key, document_name):
         # Obter a sessão associada à session key
-        session = db.session.query(Session).filter_by(session_key=session_key).first()
-        if not session:
-            return {"success": False, "message": "Invalid session key or session not found"}
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
 
         # Obter a organização associada à sessão
         organization = session.organization
@@ -155,9 +167,9 @@ class SessionController:
     @staticmethod
     def download_document(session_key, document_name):
         # Verifica a sessão e a organização correspondente
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
-            return None  # Sessão inválida ou não encontrada
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
         
         organization = session.organization
 
@@ -183,8 +195,8 @@ class SessionController:
     @staticmethod
     def get_document_metadata(session_key, document_name):
         # Verifica a sessão e a organização correspondente
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
+        session = check_session(session_key)
+        if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
         
         organization = session.organization
@@ -231,8 +243,8 @@ class SessionController:
     @staticmethod
     def upload_document_to_organization(session_key, document_name, file):
         # Verifica a sessão e a organização correspondente
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
+        session = check_session(session_key)
+        if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
         
         organization = session.organization
@@ -262,10 +274,9 @@ class SessionController:
     
     @staticmethod
     def add_document_to_organization(session_key, document_name, file_handle):
-        # Busca a sessão pela session_key fornecida
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
-            return {"error": "Sessão não encontrada."}
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
 
         # Obtém a organização e o subject associados à sessão
         organization = session.organization
@@ -295,9 +306,9 @@ class SessionController:
 
     @staticmethod
     def add_subject_to_organization(session_key, username, name, email, public_key):
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
-            return {"error": "Sessão não encontrada."}
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
 
         organization = session.organization
         if not organization:
@@ -327,9 +338,9 @@ class SessionController:
 
     @staticmethod
     def get_roles_by_session_key(session_key):
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
-            return jsonify({"error": "Session not found"}), 404
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
         
         organization = session.organization  # Obtém a organização associada à sessão
         if not organization:
@@ -346,9 +357,9 @@ class SessionController:
 
     @staticmethod
     def get_subjects_by_session_key(session_key):
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
-            return jsonify({"error": "Session not found"}), 404
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
         
         organization = session.organization  # Obtém a organização associada à sessão
         if not organization:
@@ -365,9 +376,9 @@ class SessionController:
         } for subject in subjects]), 200
     @staticmethod
     def list_session_roles(session_key):
-        session = Session.query.filter_by(session_key=session_key).first()
-        if not session:
-            return jsonify({"error": "Session not found"}), 404
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
         
         roles = [role.name for role in session.roles]
         return jsonify({"roles": roles}), 200
@@ -423,9 +434,9 @@ class SessionController:
         role_name = data.get("role")
 
         # Busca a sessão pelo campo `keys`
-        session = SessionController.get_session_by_key(session_key)
-        if not session:
-            return jsonify({"error": "Session not found"}), 404
+        session = check_session(session_key)
+        if session is None:
+            return {"error": "Sessão inválida ou não encontrada"}, 404
         '''
        
         # Search for the specific role by name and organization of the session
