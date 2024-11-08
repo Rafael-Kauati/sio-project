@@ -59,7 +59,7 @@ logger.info("Logging configuration test.")
 from .models import Document, Organization, Session, Subject
 
 ## Gen pub key for anonymous API :
-gen_key()
+#gen_key()
 
 # Create the tables in the database
 with app.app_context():

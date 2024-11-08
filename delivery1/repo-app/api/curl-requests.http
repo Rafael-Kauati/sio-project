@@ -10,6 +10,30 @@ curl -X POST http://127.0.0.1:5000/organizations \
           }
       }'
 
+curl -X POST http://127.0.0.1:5000/organizations \
+-H "Content-Type: application/json" \
+-d '{
+    "name": "Org",
+    "subject": {
+        "username": "example_user",
+        "full_name": "Example User",
+        "email": "user@example.com",
+        "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA66Sk7r4umHirip14vp84\n/WhNYu9lLQl+P0v7ZXBdpyowEboJhi2K7oP85GKNG81ehk54GV3rz1lzP5MXdy8q\nMkmOBq5h49rusR+7MT7WGKUuqSiNOo5+Ed0qPuL7wCr8TBFOgbMvq2k6vcPava62\nnwJb125ADX6YhD5lA/HQKJBQIy8VrnCYBMT+AiiJ+trFVpvBQFhP3xlwuotRUVbw\nN8L/ClfSovj3wn8jeCGpz+e6WVo11OYI0o0FsyYzimmDvEA2c0ZGtqPnoBL0LyD1\nn3vTlfa0kAl2BIoVdVlDx2SQ3peDchvnuUJPbo+j2TuaI1qbb3qLV77PY12ECkoh\nPQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+}'
+
+curl -X POST http://127.0.0.1:5000/organizations \
+-H "Content-Type: application/json" \
+-d '{
+    "name": "Org2",
+    "subject": {
+        "username": "example_user2",
+        "full_name": "Example User2",
+        "email": "user2@example.com",
+        "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA66222Sk7r4umHirip14vp84\n/WhNYu9lLQl+P0v7ZXBdpyowEboJhi2K7oP85GKNG81ehk54GV3rz1lzP5MXdy8q\nMkmOBq5h49rusR+7MT7WGKUuqSiNOo5+Ed0qPuL7wCr8TBFOgbMvq2k6vcPava62\nnwJb125ADX6YhD5lA/HQKJBQIy8VrnCYBMT+AiiJ+trFVpvBQFhP3xlwuotRUVbw\nN8L/ClfSovj3wn8jeCGpz+e6WVo11OYI0o0FsyYzimmDvEA2c0ZGtqPnoBL0LyD1\nn3vTlfa0kAl2BIoVdVlDx2SQ3peDchvnuUJPbo+j2TuaI1qbb3qLV77PY12ECkoh\nPQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+}'
+
 
 curl -X GET http://127.0.0.1:5000/organizations
 

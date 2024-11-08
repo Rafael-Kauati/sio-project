@@ -1,3 +1,5 @@
+from cryptography.exceptions import InvalidKey
+from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request, send_file, abort
 from api.models import db, Document, Organization, Session, Subject, Role
 from sqlalchemy import text
@@ -90,28 +92,38 @@ class OrganizationController:
 
         if not org_name or not subject_data:
             return jsonify({'error': 'Organization name and subject data are required'}), 400
-        
-        # Extract subject data
+
+        # Extrair dados do sujeito
         username = subject_data.get("username")
         full_name = subject_data.get("full_name")
         email = subject_data.get("email")
         public_key = subject_data.get("public_key")
-        
+
         if not username or not full_name or not email or not public_key:
             return jsonify({'error': 'All subject fields are required'}), 400
-        
-        # Create organization
+
+        # Validação da chave pública
+        try:
+            # Carregar a chave pública para verificar se é válida
+            public_key_obj = serialization.load_pem_public_key(
+                public_key.encode(),  # Converte a chave pública de string para bytes
+                backend=None
+            )
+        except (ValueError, InvalidKey) as e:
+            return jsonify({'error': 'Invalid public key format'}), 400
+
+        # Criar organização
         organization = Organization(name=org_name)
-        
-        # Create subject
+
+        # Criar sujeito
         subject = Subject(
             username=username,
             full_name=full_name,
             email=email,
-            public_key=public_key
+            public_key=public_key  # Armazena a chave pública
         )
-        
-        # Save both to the database
+
+        # Salvar ambas as entidades no banco de dados
         try:
             db.session.add(organization)
             db.session.add(subject)
