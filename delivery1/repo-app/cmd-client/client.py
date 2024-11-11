@@ -79,6 +79,97 @@ def save(state):
     with open(state_file, 'w') as f:
         f.write(json.dumps(state, indent=4))
 
+def list_organizations():
+    url = f"http://{state['REP_ADDRESS']}/organizations" #mudar isto para o caminho da api
+    response = requests.get(url)
+    if response.status_code == 200:
+        logger.info("Organizations listed successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to list organizations: {response.status_code}")
+
+def create_organization(data):
+    url = f"http://{state['REP_ADDRESS']}/organizations"
+    response = requests.post(url, json=data)
+    if response.status_code == 200:
+        logger.info("Organization created successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to create organization: {response.status_code}")
+
+def create_session(data):
+    url = f"http://{state['REP_ADDRESS']}/sessions"
+    response = requests.post(url, json=data)
+    if response.status_code == 200:
+        logger.info("Session created successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to create session: {response.status_code}")
+
+def download_file(filename):
+    url = f"http://{state['REP_ADDRESS']}/download/{filename}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(filename, 'wb') as f:
+            f.write(response.content)
+        logger.info(f"File '{filename}' downloaded successfully.")
+    else:
+        logger.error(f"Failed to download file '{filename}': {response.status_code}")
+
+def add_subject(data):
+    url = f"http://{state['REP_ADDRESS']}/add_subject"
+    response = requests.post(url, json=data)
+    if response.status_code == 201:
+        logger.info("Subject added successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to add subject: {response.status_code}")
+
+def add_document(data, file_path):
+    url = f"http://{state['REP_ADDRESS']}/add_document"
+    with open(file_path, 'rb') as file:
+        files = {
+            'file': file,
+            'session_key': (None, data['session_key']),
+            'document_name': (None, data['document_name'])
+        }
+        response = requests.post(url, files=files)
+    if response.status_code == 201:
+        logger.info("Document added successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to add document: {response.status_code}")
+
+def get_document_metadata(session_key, document_name):
+    url = f"http://{state['REP_ADDRESS']}/document/metadata"
+    headers = {'session_key': session_key}
+    params = {'document_name': document_name}
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code == 200:
+        logger.info("Document metadata retrieved successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to get document metadata: {response.status_code}")
+
+def download_document(session_key, document_name):
+    url = f"http://{state['REP_ADDRESS']}/download_document/{session_key}/{document_name}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(document_name, 'wb') as f:
+            f.write(response.content)
+        logger.info(f"Document '{document_name}' downloaded successfully.")
+    else:
+        logger.error(f"Failed to download document '{document_name}': {response.status_code}")
+
+def delete_document(session_key, document_name):
+    url = f"http://{state['REP_ADDRESS']}/delete_document/{session_key}/{document_name}"
+    response = requests.delete(url)
+    if response.status_code == 200:
+        logger.info(f"Document '{document_name}' deleted successfully.")
+    else:
+        logger.error(f"Failed to delete document '{document_name}': {response.status_code}")
+
+
 
 state = load_state()
 state = parse_env(state)
