@@ -1,7 +1,14 @@
+import base64
+import hashlib
+import io
 import logging
-from flask import Blueprint, jsonify, request, current_app, send_from_directory
+import os
+
+from flask import Blueprint, jsonify, request, current_app, send_from_directory, send_file, abort
 from api.controllers import OrganizationController, SessionController, DocumentController
-from api import logger
+from api import logger, Document
+from api.utils import decrypt_file_key_with_ec_master, load_ec_master_key, load_ec_private_key
+from . import app
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
@@ -41,15 +48,29 @@ def create_session_route():
     return response
 
 
-# Endpoint for file download
-@main_bp.route('/download/<filename>', methods=['GET'])
-def download_file(filename):
-    try:
-        logger.info(f"Request to download file: {filename}")
-        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
-    except FileNotFoundError:
-        logger.error(f"File not found: {filename}")
-        return jsonify({'error': 'File not found'}), 404
+@main_bp.route('/download/<file_handle>', methods=['GET'])
+def download_file(file_handle):
+    # Chama o método do controlador
+    response, status_code = DocumentController.download_document(file_handle)
+
+    # Caso o método retorne a chave do arquivo, faz o envio do arquivo também
+    if status_code == 200:
+        file_data = response.get('file_data')  # Dados do arquivo
+        file_key = response.get('file_key')    # Chave do arquivo
+        file_name = response.get('file_name')  # Nome do arquivo
+
+        # Salva o arquivo como resposta para o cliente
+        return send_file(
+            io.BytesIO(file_data),    # Usar io.BytesIO para enviar os dados binários
+            as_attachment=True,       # Força o download do arquivo
+            download_name=file_name,  # Nome do arquivo
+            mimetype='application/octet-stream'  # Tipo MIME genérico
+        )
+
+    # Se o código de status não for 200, retorna o erro
+    return jsonify(response), status_code
+
+
 
 
 #######################################################################
@@ -121,17 +142,44 @@ def add_subject_route():
 
 @main_bp.route('/add_document', methods=['POST'])
 def add_document_route():
+    # Recebe os dados da requisição
     session_key = request.form.get("session_key")
-    document_name = request.form.get("document_name")
+    file_name = request.form.get("file_name")
     file = request.files.get("file")
+    file_encryption_key = request.form['file_encryption_key']  # Aqui recebendo como string
+    file_handle = request.form.get('file_handle')  # Recebe o file_handle enviado pelo cliente
 
-    if not all([session_key, document_name, file]):
+    # Gera o hash SHA256 do arquivo
+    file_content = file.read()
+
+    # Envia o hash como um campo adicional
+    logger.info(f"Received file: {file.filename}")
+    file.seek(0)
+    file_content = file.read()
+    logger.info(f"File content length: {len(file_content)}")
+    file_hash = hashlib.sha256(file_content).hexdigest()
+    logger.info(f"Calculated file hash: {file_hash}")
+
+    # Validação de campos obrigatórios
+    if not all([session_key, file_name, file, file_encryption_key, file_handle]):
         logger.warning("Missing required fields for adding document.")
-        return jsonify({"error": "Todos os campos são obrigatórios: session_key, document_name, e o arquivo"}), 400
+        return jsonify({
+            "error": "Todos os campos são obrigatórios: session_key, document_name, arquivo, file_encryption_key e file_handle"}), 400
 
-    logger.info(f"Adding document to organization with session key: {session_key} and document name: {document_name}")
-    result = SessionController.upload_document_to_organization(session_key, document_name, file)
+    # Gera o hash do arquivo e valida se corresponde ao file_handle recebido
+      # Gera o hash SHA256 do conteúdo do arquivo
+    if file_handle != file_hash:
+        logger.warning("file_handle não corresponde ao hash do arquivo enviado.")
+        return jsonify({
+            "error": "O file_handle enviado não corresponde ao hash do arquivo."}), 400
+
+    # Chama o controller para fazer o processamento e salvar o documento
+    logger.info(f"Adding document to organization with session key: {session_key} and document name: {file_name}")
+    result = SessionController.upload_document_to_organization(session_key, file_name, file,file_handle, file_encryption_key)
+
+    # Retorna o resultado conforme o sucesso ou falha
     return jsonify(result), 201 if "id" in result else 400
+
 
 
 @main_bp.route('/document/metadata', methods=['GET'])
@@ -145,7 +193,7 @@ def get_document_metadata_route():
 
     logger.info(f"Requesting document metadata for session key: {session_key} and document name: {document_name}")
     result = SessionController.get_document_metadata(session_key, document_name)
-    return jsonify(result)
+    return result
 
 
 @main_bp.route('/download_document/<session_key>/<document_name>', methods=['GET'])

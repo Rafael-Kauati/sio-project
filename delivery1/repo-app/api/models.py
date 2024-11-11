@@ -14,8 +14,12 @@ class Document(db.Model):
     name = db.Column(db.String(128), nullable=False)
     create_date = db.Column(db.DateTime, nullable=False)
     creator = db.Column(db.String(128), nullable=False)
-    file_handle = db.Column(db.String(128), unique=True, nullable=False)
+    file_handle = db.Column(db.String(1000), unique=True, nullable=False)
     acl = db.Column(db.JSON, nullable=False)
+    encrypted_file_key = db.Column(db.LargeBinary, nullable=True)  # Chave de criptografia do arquivo
+    iv = db.Column(db.LargeBinary, nullable=False)  # Armazena o IV usado na criptografia
+    tag = db.Column(db.LargeBinary, nullable=False)  # Armazena o TAG usado na criptografia
+    ephemeral_public_key = db.Column(db.LargeBinary, nullable=False)  # Nova coluna para chave pública efêmera
     deleter = db.Column(db.String(128), nullable=True)
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
 
@@ -30,6 +34,7 @@ class Document(db.Model):
             "acl": self.acl,
             "organization_id": self.organization_id
         }
+
 
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)

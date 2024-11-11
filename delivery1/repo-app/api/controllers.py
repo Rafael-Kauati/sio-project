@@ -1,3 +1,6 @@
+import base64
+import hashlib
+
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request, send_file, abort
@@ -6,10 +9,9 @@ from sqlalchemy import text
 import mimetypes
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from .utils import is_session_valid
+from .utils import *
 from . import app  
 import os
-
 
 def check_session(key):
     session = Session.query.filter_by(session_key=key).first()
@@ -65,6 +67,49 @@ class DocumentController:
     @staticmethod
     def download_document(file_handle):
         # Busca o documento no banco de dados
+        document = Document.query.filter_by(file_handle=file_handle).first()
+        print(f"\nfile fetched : {document.name}")
+        if not document:
+            return {'error': 'File not found in database'}, 404
+
+        # Recupera a chave criptografada e os dados de criptografia
+        print(f"Encrypted file key recuperado para descriptografia: {document.encrypted_file_key}")
+        encrypted_file_key = document.encrypted_file_key
+        iv = document.iv  # Certifique-se de que o iv está sendo obtido corretamente
+        tag = document.tag  # Certifique-se de que o tag está sendo obtido corretamente
+        ephemeral_public_key = document.ephemeral_public_key  # Obtém a chave pública efêmera armazenada
+        print(f"IV recuperado: {iv}")
+        print(f"Tag recuperado: {tag}")
+
+        # Verifica se os dados de criptografia estão presentes
+        if not encrypted_file_key or not iv or not tag or not ephemeral_public_key:
+            return {'error': 'Cryptography data not found for this document'}, 404
+
+        # Descriptografa a chave do arquivo usando a função de descriptografia
+        decrypted_file_key = decrypt_file_key_with_ec_master(encrypted_file_key, iv, tag, ephemeral_public_key)
+
+        # Define o caminho do arquivo usando o file_handle
+        file_path = f"./api/uploads/{document.name}"
+
+        # Verifica se o arquivo existe no caminho
+        if not os.path.exists(file_path):
+            return {'error': 'File not found on server'}, 404
+
+        # Abre o arquivo em modo binário e o retorna na resposta
+        with open(file_path, 'rb') as file:
+            file_data = file.read()
+
+        # Retorna tanto o conteúdo do arquivo quanto a chave desencriptada
+        return {
+            'file_key': decrypted_file_key.decode('utf-8'),
+            'file_data': file_data,  # Dados binários do arquivo
+            'file_name': document.name  # Nome do arquivo
+        }, 200  # Retorna uma tupla com resposta e código de status
+
+    '''
+    @staticmethod
+    def download_document(file_handle):
+        # Busca o documento no banco de dados
         document = Document.query.filter_by(file_handle=file_handle).first_or_404()
 
         # Define o caminho do arquivo usando o `file_handle`
@@ -75,6 +120,7 @@ class DocumentController:
             return send_file(file_path, as_attachment=True)  # Envia o arquivo como anexo
         else:
             abort(404, description="File not found.")  # Retorna erro 404 se o arquivo não for encontrado
+    '''
 
     @staticmethod
     def delete_document(file_handle):
@@ -203,14 +249,13 @@ class SessionController:
             print(f"Erro ao enviar arquivo: {e}")
             return None
 
-    
     @staticmethod
     def get_document_metadata(session_key, document_name):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
         if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
-        
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
         organization = session.organization
 
         # Busca o documento na organização especificada
@@ -219,71 +264,89 @@ class SessionController:
         ).first()
 
         if not document:
-            return {"error": "Documento não encontrado na organização"}, 404
+            return jsonify({"error": "Documento não encontrado na organização"}), 404
 
-        # Detecta o tipo MIME do arquivo para determinar o modo de leitura
+        # Lê o arquivo criptografado
         file_path = document.file_handle
-        mime_type, _ = mimetypes.guess_type(file_path)
 
-        try:
-            if mime_type and mime_type.startswith("text"):
-                # Ler como texto se o MIME for texto
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    file_content = file.read()
-            else:
-                # Ler como binário se não for texto
-                with open(file_path, 'rb') as file:
-                    file_content = file.read()
-        except FileNotFoundError:
-            return {"error": "Arquivo não encontrado no servidor"}, 404
-        except IOError:
-            return {"error": "Erro ao ler o arquivo"}, 500
+        # Recupera a chave criptografada do arquivo
+        encrypted_file_key = document.encrypted_file_key
 
-        # Retorna os metadados do documento e seu conteúdo
+        # Retornar metadados do documento e a chave criptografada
         metadata = {
             "document_id": document.id,
             "document_name": document.name,
-            "document_handle": document.document_handle,
             "create_date": document.create_date,
             "creator": document.creator,
             "organization_id": document.organization_id,
-            #"content": file_content if isinstance(file_content, str) else file_content.hex()  
+            "file_handle": document.file_handle,
+            "file_key": encrypted_file_key.hex()  # Retorna a chave criptografada em formato hexadecimal
         }
 
+        # Certifique-se de que todos os dados são serializáveis
+        # Convertendo valores como datetime para string, por exemplo
+        metadata["create_date"] = metadata["create_date"].isoformat() if isinstance(metadata["create_date"],
+                                                                                    datetime) else metadata[
+            "create_date"]
+
+        # Retornar os metadados em JSON diretamente com jsonify
         return {"metadata": metadata}, 200
 
     @staticmethod
-    def upload_document_to_organization(session_key, document_name, file):
+    def upload_document_to_organization(session_key, file_name, file, file_encryption_key, file_handle,
+                                        private_key_path="master_key.pem.pub"):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
-        
+
         organization = session.organization
         subject = session.subject
 
         # Salva o arquivo de forma segura
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)  # Atualização aqui
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_name)
+        file.seek(0)  # Move o ponteiro de leitura do arquivo para o início antes de salvar
         file.save(filepath)
 
-        # Cria e armazena o novo documento
-        new_document = Document(
-            document_handle=document_name,
-            name=filename,
-            create_date=datetime.now(),
-            creator=subject.username,
-            file_handle=filepath,
-            acl={},
-            organization_id=organization.id
+        # Carrega a chave pública para a criptografia da chave do arquivo
+        public_key = load_ec_public_key(private_key_path)
+
+        # Criptografa a chave do arquivo com a chave pública mestre
+        encrypted_file_key, ephemeral_public_key, iv, tag = encrypt_file_key_with_ec_master(
+            file_encryption_key, public_key
+        )
+        print(f"Encrypted file key durante criptografia: {encrypted_file_key}")
+        print(f"IV gerado: {iv}")
+        print(f"Tag gerado: {tag}")
+
+        # Serializa a chave pública efêmera para armazenamento no banco de dados
+        ephemeral_public_key_serialized = ephemeral_public_key.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
+        # Cria um novo documento, armazenando `iv`, `tag` e `ephemeral_public_key`
+        new_document = Document(
+            document_handle=file_name,
+            name=file_name,
+            create_date=datetime.now(),
+            creator=subject.username,
+            file_handle=file_handle,
+            acl={},
+            organization_id=organization.id,
+            encrypted_file_key=encrypted_file_key,  # Salva a chave de criptografia criptografada
+            iv=iv,  # Armazena o IV diretamente
+            tag=tag,  # Armazena o TAG diretamente
+            ephemeral_public_key=ephemeral_public_key_serialized  # Armazena a chave pública efêmera
+        )
+
+        # Adiciona e salva o documento no banco de dados
         db.session.add(new_document)
         db.session.commit()
 
         return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
 
-    
     @staticmethod
     def add_document_to_organization(session_key, document_name, file_handle):
         session = check_session(session_key)

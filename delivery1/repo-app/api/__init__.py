@@ -3,12 +3,41 @@ import logging
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-import os
 from cryptography.hazmat.primitives.asymmetric import rsa
+import os
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
 
+def generate_and_save_master_key(key_path="master_key.pem"):
+    # Gera uma nova chave privada EC (usando a curva SECP256R1)
+    private_key = ec.generate_private_key(ec.SECP256R1())
 
-def gen_key():
+    # Salva a chave privada em um arquivo .pem
+    with open(key_path, "wb") as private_key_file:
+        private_key_file.write(
+            private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+        )
+
+    # Gera a chave pública associada
+    public_key = private_key.public_key()
+
+    # Salva a chave pública em um arquivo .pem
+    with open(f"{key_path}.pub", "wb") as public_key_file:
+        public_key_file.write(
+            public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+        )
+
+    return private_key, public_key
+
+
+def gen_anon_key():
     # Gera um par de chaves RSA
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
@@ -59,8 +88,8 @@ logger.info("Logging configuration test.")
 from .models import Document, Organization, Session, Subject
 
 ## Gen pub key for anonymous API :
-#gen_key()
-
+#gen_anon_key()
+#generate_and_save_master_key()
 # Create the tables in the database
 with app.app_context():
     #db.drop_all()
