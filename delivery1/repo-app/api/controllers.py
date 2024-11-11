@@ -16,12 +16,15 @@ import os
 def check_session(key):
     session = Session.query.filter_by(session_key=key).first()
 
-    # Verifica se a sessão existe e se ainda é válida
     if not session or not is_session_valid(session):
+        if session:
+            db.session.delete(session)  # Exclui a sessão expirada
+            db.session.commit()  # Commit para garantir a exclusão no banco
         return None
 
     # A sessão é válida, pode continuar com o processamento normal
-    return session  # Ou qualquer lógica que continua a partir daqui
+    return session
+
 
 class DocumentController:
     @staticmethod
