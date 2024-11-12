@@ -204,26 +204,42 @@ class SessionController:
         if not organization:
             return {"success": False, "message": "No organization associated with this session"}
 
+
         # Buscar o documento na base de dados
         document = db.session.query(Document).filter_by(
             organization_id=organization.id, document_handle=document_name
         ).first()
 
+        print(f"Encrypted file key recuperado para descriptografia: {document.encrypted_file_key}")
+        encrypted_file_key = document.encrypted_file_key
+        iv = document.iv  # Certifique-se de que o iv está sendo obtido corretamente
+        tag = document.tag  # Certifique-se de que o tag está sendo obtido corretamente
+        ephemeral_public_key = document.ephemeral_public_key  # Obtém a chave pública efêmera armazenada
+        print(f"IV recuperado: {iv}")
+        print(f"Tag recuperado: {tag}")
+
+        # Verifica se os dados de criptografia estão presentes
+        if not encrypted_file_key or not iv or not tag or not ephemeral_public_key:
+            return {'error': 'Cryptography data not found for this document'}, 404
+
+        # Descriptografa a chave do arquivo usando a função de descriptografia
+        decrypted_file_key = decrypt_file_key_with_ec_master(encrypted_file_key, iv, tag, ephemeral_public_key)
+
         if document:
             # Deletar o arquivo do sistema de arquivos
             try:
-                file_path = document.file_handle  # Usar o caminho do arquivo armazenado
+                file_path = f"./api/uploads/{document.name}"  # Usar o caminho do arquivo armazenado
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
                 # Deletar o documento da base de dados
                 db.session.delete(document)
                 db.session.commit()
-                return {"success": True, "message": "Document deleted successfully"}
+                return jsonify({"success": True, "message": "Document deleted successfully", "file_key":decrypted_file_key.hex(), "file_handle":document.file_handle}), 200
             except Exception as e:
-                return {"success": False, "message": str(e)}
+                return {"success": False, "message": str(e)}, 404
         else:
-            return {"success": False, "message": "Document not found"}
+            return {"success": False, "message": "Document not found"}, 400
 
     @staticmethod
     def download_document(session_key, document_name):
