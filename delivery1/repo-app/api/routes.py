@@ -210,4 +210,4 @@ def download_document_route(session_key, document_name):
 def delete_document_route(session_key, document_name):
     logger.info(f"Request to delete document: {document_name} in session: {session_key}")
     result = SessionController.delete_document_from_organization(session_key, document_name)
-    return jsonify(result), 200 if result['success'] else 400
+    return result

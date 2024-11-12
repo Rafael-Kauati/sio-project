@@ -18,7 +18,7 @@ def encrypt_file_with_aes(file_data):
     return encrypted_file_data, aes_key, iv
 
 # Simulando a criptografia do arquivo
-file_path = '../test.txt'
+file_path = './file.txt'
 with open(file_path, 'rb') as f:
     file_data = f.read()
 
@@ -26,7 +26,9 @@ with open(file_path, 'rb') as f:
 # Gera o hash SHA256 do arquivo original, antes da criptografia
 
 # Criptografa o arquivo
+
 encrypted_file_data, aes_key, iv = encrypt_file_with_aes(file_data)
+print(f"\n Encrypted file key : {aes_key.hex()}")
 file_handle = hashlib.sha256(encrypted_file_data).hexdigest()
 
 # Envia o arquivo criptografado, a chave de criptografia e o file_handle para o servidor
