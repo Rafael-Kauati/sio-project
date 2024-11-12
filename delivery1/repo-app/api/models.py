@@ -26,12 +26,7 @@ class Document(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "document_handle": self.document_handle,
             "name": self.name,
-            "create_date": self.create_date.strftime('%d-%m-%Y %H:%M:%S'),  # Formatando a data
-            "creator": self.creator,
-            "file_handle": self.file_handle,
-            "acl": self.acl,
             "organization_id": self.organization_id
         }
 
