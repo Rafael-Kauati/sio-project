@@ -6,6 +6,7 @@ python3 client.py rep_create_session "Org4"  "anon3"  "password"  "key"  credent
 
 To create a new subject :
 python3 client.py rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com" "key2" "credentials"
+python3 client.py rep_create_session "Org4"  "gabs"  "password"  "key"  credentials session_file
 
 To list the subjects of the organization :
 python3 client.py rep_list_subjects  "session_file"

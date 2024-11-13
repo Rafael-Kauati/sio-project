@@ -65,7 +65,7 @@ def create_session(data, session_file):
     payload = {
         "username": data['username'],
         "organization_name": data['organization'],
-        "identifier": "orgsession",
+        #"identifier": "orgsession",
         "session_key": data['key'],  # Atualize conforme necessário
         "password": data['password'],
         "credentials": credentials
