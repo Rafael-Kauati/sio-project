@@ -4,6 +4,9 @@ python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "../p
 To create a new session in that org :
 python3 client.py rep_create_session "Org4"  "anon3"  "password"  "key"  credentials session_file
 
+To create a new subject :
+ python3 client.py rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com" "key2" "credentials"
+
 
 To upload a doc with the session(note: this command assumes that the document is not encrypted, so it encrypts it and sends the encrypted key and the file handle within the request) :
 python3 client.py rep_add_doc "session_file" "test" "./test"

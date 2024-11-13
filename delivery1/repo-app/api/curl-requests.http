@@ -99,6 +99,15 @@ curl -X GET "http://localhost:5000/document/metadata?document_name=file" \
 curl -X GET http://localhost:5000/download_document/key/animegurl --output animegurl.jpg
 
 
+curl -X POST http://localhost:5000/add_subject \
+     -H "Content-Type: application/json" \
+     -d '{
+           "session_key": "your_session_key",
+           "username": "your_username",
+           "name": "subject_name",
+           "email": "subject_email@example.com",
+           "public_key": "your_public_key"
+         }'
 
 
 curl -O http://localhost:5000/download/filetest.txt

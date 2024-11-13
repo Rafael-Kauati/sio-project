@@ -82,14 +82,28 @@ def download_file(filename):
     else:
         logger.error(f"Failed to download file '{filename}': {response.status_code}")
 
-def add_subject(data):
+def add_subject(data, session_file):
     url = f"http://{state['REP_ADDRESS']}/add_subject"
-    response = requests.post(url, json=data)
-    if response.status_code == 201:
-        logger.info("Subject added successfully.")
-        return response.json()
-    else:
-        logger.error(f"Failed to add subject: {response.status_code}")
+    # Carrega o arquivo de sessão para obter a session_key
+    with open(session_file, 'r') as session_file:
+        session_data = json.load(session_file)
+        session_key = session_data["session_context"]["session_key"]
+
+    with open(data['credentials_file'], 'r') as cred_file:
+        credentials = json.load(cred_file)
+
+
+    payload = {
+        "username": data['username'],
+        "name": data['name'],
+        "email": data['email'],
+        "session_key": session_key,
+        "public_key" : data['key'],
+        "credentials": credentials
+    }
+    response = requests.post(url, json=payload)
+    return response
+
 
 def add_document(data, file_path):
     url = f"http://{state['REP_ADDRESS']}/add_document"
@@ -276,7 +290,7 @@ def parse_args(state):
     parser.add_argument("command", choices=["list_organizations",
                                             "rep_create_org", "rep_create_session",
                                             "download_file", "rep_get_doc_metadata",
-                                            "rep_list_docs","add_subject",
+                                            "rep_list_docs","rep_add_subject",
                                             "rep_add_doc", "rep_delete_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
@@ -314,12 +328,8 @@ def parse_args(state):
 
         command_parser.add_argument("session_file", help="Path to save the session file")
 
-    elif args.command == "download_file":
-        command_parser.add_argument("filename", help="File to download")
 
-    elif args.command == "add_subject":
-        command_parser.add_argument("session_key", help="Session key for the subject")
-        command_parser.add_argument("subject_data", help="Subject data to add")
+
 
     elif args.command == "rep_get_doc_metadata":
         command_parser.add_argument("session_file", help="Path to session file")
@@ -341,7 +351,18 @@ def parse_args(state):
     elif args.command == "rep_delete_doc":
         command_parser.add_argument("session_file", help="Path to session file")
         command_parser.add_argument("document_name", help="Document name")
+
+    if args.command == "rep_add_subject":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("username", help="Username for the organization admin")
+        command_parser.add_argument("name", help="Name of the organization")
+        command_parser.add_argument("email", help="Email of the organization")
+        command_parser.add_argument("key", help="key of the subject")
+        command_parser.add_argument("credentials_file", help="Path to the credentials file")
+
+
     # Analisa os argumentos específicos do comando usando unknown_args
+
     command_args = command_parser.parse_args(unknown_args)
 
     # Retorna o estado, os argumentos principais e os argumentos do comando específico
@@ -407,6 +428,16 @@ elif args.command == "rep_create_org":
     }
     create_organization(data)
 
+if args.command == "rep_add_subject":
+    data = {
+        #"session_file": command_args.session_file,
+        "username": command_args.username,
+        "name": command_args.name,
+        "email": command_args.email,
+        "key": command_args.key,
+        "credentials_file": command_args.credentials_file
+    }
+    print(add_subject(data, command_args.session_file))
 
 if args.command == "rep_create_session":
     data = {
@@ -425,11 +456,6 @@ elif args.command == "rep_get_doc_metadata":
 elif args.command == "rep_delete_doc":
 
     print(delete_document(command_args.session_file, command_args.document_name))
-elif args.command == "add_subject":
-    data = {
-        "session_key": command_args.session_key,
-        "subject_data": command_args.subject_data
-    }
-    add_subject(data)
+
 
 save(state)
