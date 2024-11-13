@@ -150,23 +150,25 @@ def get_document_metadata(session_file, document_name):
     # Retornar a resposta
     return response.json()
 
-def download_document(session_key, document_name):
-    url = f"http://{state['REP_ADDRESS']}/download_document/{session_key}/{document_name}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(document_name, 'wb') as f:
-            f.write(response.content)
-        logger.info(f"Document '{document_name}' downloaded successfully.")
-    else:
-        logger.error(f"Failed to download document '{document_name}': {response.status_code}")
 
-def delete_document(session_key, document_name):
-    url = f"http://{state['REP_ADDRESS']}/delete_document/{session_key}/{document_name}"
-    response = requests.delete(url)
-    if response.status_code == 200:
-        logger.info(f"Document '{document_name}' deleted successfully.")
-    else:
-        logger.error(f"Failed to delete document '{document_name}': {response.status_code}")
+import requests
+
+
+def download_document(file_handle, file=None):
+    url = f"http://{state['REP_ADDRESS']}/download/{file_handle}"
+    response = requests.get(url)
+
+    # Check if the file parameter is not None
+    if file is not None:
+        with open(file, 'wb') as f:
+            f.write(response.content)  # Write the response content to the file
+        print(f"File saved as {file}")
+        return 0
+
+    return response.json()
+
+
+
 
 def encrypt_file_with_aes(file_data):
     aes_key = os.urandom(32)  # 256-bit AES key
@@ -311,7 +313,7 @@ def parse_args(state):
                                             "download_file", "rep_get_doc_metadata",
                                             "rep_list_docs",
                                             "rep_add_subject", "rep_list_subjects",  # Added missing comma
-                                            "rep_add_doc", "rep_delete_doc"], help="Command to execute")
+                                            "rep_add_doc", "rep_get_file","rep_delete_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -380,6 +382,11 @@ def parse_args(state):
         command_parser.add_argument("email", help="Email of the organization")
         command_parser.add_argument("key", help="key of the subject")
         command_parser.add_argument("credentials_file", help="Path to the credentials file")
+
+    if args.command == "rep_get_file":
+        command_parser.add_argument("file_handle", help="File Handle to download the file")
+        command_parser.add_argument("-f", "--file", help="File to save the document (optional)")
+
 
     elif args.command == "rep_list_subjects":
         command_parser.add_argument("session_file", help="Path to session file")
@@ -452,6 +459,11 @@ elif args.command == "rep_list_subjects":
     session_file = command_args.session_file
     username = command_args.username
     print(list_subjects(session_file))
+
+elif args.command == "rep_get_file":
+    file_handle = command_args.file_handle
+    output_file = command_args.file
+    print(download_document(file_handle, output_file))
 
 if args.command == "rep_create_session":
     data = {
