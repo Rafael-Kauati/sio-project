@@ -6,6 +6,12 @@ import logging
 import json
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import json
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 logging.basicConfig(format='%(levelname)s\t- %(message)s')
 logger = logging.getLogger()
@@ -259,7 +265,56 @@ def list_subjects(session_file, username=None):
     response = requests.get(url)
     return response.json()
 
+def gen_subject_file(password, credentials_file):
+    # Generate RSA private/public key pair
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    public_key = private_key.public_key()
 
+    # Serialize the public key to PEM format
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')  # Decode to string for JSON storage
+
+    # Encrypt the private key
+    salt = os.urandom(16)  # Random salt for key derivation
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100_000,
+        backend=default_backend()
+    )
+    key = kdf.derive(password.encode())
+
+    # AES encryption of the private key
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    encrypted_private_key = encryptor.update(private_pem) + encryptor.finalize()
+
+    # Save the public key in JSON format and encrypted private key in the same file
+    credentials_data = {
+        "public_key": public_pem,
+        "salt": salt.hex(),
+        "iv": iv.hex(),
+        "encrypted_private_key": encrypted_private_key.hex()
+    }
+
+    with open(f"{credentials_file}", "w") as cred_file:
+        json.dump(credentials_data, cred_file, indent=4)
+
+    print("Keys generated and saved in JSON format.")
 def load_state():
     state = {}
     state_dir = os.path.join(os.path.expanduser('~'), '.sio')
@@ -313,7 +368,8 @@ def parse_args(state):
                                             "download_file", "rep_get_doc_metadata",
                                             "rep_list_docs",
                                             "rep_add_subject", "rep_list_subjects",  # Added missing comma
-                                            "rep_add_doc", "rep_get_file","rep_delete_doc"], help="Command to execute")
+                                            "rep_add_doc", "rep_get_file","rep_delete_doc",
+                                            "rep_subject_credentials"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -329,6 +385,11 @@ def parse_args(state):
 
     # Sub-parser para argumentos específicos do comando
     command_parser = argparse.ArgumentParser()
+
+
+    if args.command == "rep_subject_credentials":
+        command_parser.add_argument("password", help="Password to generate the key")
+        command_parser.add_argument("credentials_file", help="file to store the key")
 
     if args.command == "rep_create_org":
         command_parser.add_argument("organization", help="Organization ID")
@@ -425,6 +486,10 @@ elif args.command == "rep_add_doc":
     }
     print(upload_document(data))
 
+elif args.command == "rep_subject_credentials":
+    password = command_args.password
+    crendentials_file = command_args.credentials_file
+    print(gen_subject_file(password, crendentials_file))
 
 elif args.command == "rep_list_docs":
     data = {
