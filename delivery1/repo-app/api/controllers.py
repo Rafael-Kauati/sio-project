@@ -169,7 +169,7 @@ class OrganizationController:
             username=username,
             full_name=full_name,
             email=email,
-            public_key=public_key  # Armazena a chave pública
+            public_key=public_key
         )
 
         # Salvar ambas as entidades no banco de dados
@@ -497,7 +497,7 @@ class SessionController:
 
         # Cria uma nova sessão
         new_session = Session(
-            identifier=data.get("identifier"),
+            #identifier=data.get("identifier"),
             session_key=data.get("session_key"),
             password=data.get("password"),
             credentials=data.get("credentials"),
@@ -516,7 +516,7 @@ class SessionController:
                 'organization_name': organization.name,
                 'subject_username': subject.username,
                 'session_key': new_session.session_key,
-                'identifier': new_session.identifier,
+                #'identifier': new_session.identifier,
                 # Adicione mais campos conforme necessário
             }
         }), 201
