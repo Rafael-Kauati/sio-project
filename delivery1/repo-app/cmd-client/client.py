@@ -11,6 +11,17 @@ logging.basicConfig(format='%(levelname)s\t- %(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+def save(state):
+    state_dir = os.path.join(os.path.expanduser('~'), '.sio')
+    state_file = os.path.join(state_dir, 'state.json')
+
+    if not os.path.exists(state_dir):
+      logger.debug('Creating state folder')
+      os.mkdir(state_dir)
+
+    with open(state_file, 'w') as f:
+        f.write(json.dumps(state, indent=4))
+
 def list_organizations():
     url = f"http://{state['REP_ADDRESS']}/organizations"
     response = requests.get(url)
@@ -237,6 +248,14 @@ def delete_document(session_file, document_name):
     response = requests.delete(url)
     return response
 
+def list_subjects(session_file, username=None):
+    with open(session_file, 'r') as session_file:
+        session_data = json.load(session_file)
+        session_key = session_data["session_context"]["session_key"]
+
+    url = f"http://{state['REP_ADDRESS']}/sessions/{session_key}/subjects"
+    response = requests.get(url)
+    return response.json()
 
 
 def load_state():
@@ -290,11 +309,13 @@ def parse_args(state):
     parser.add_argument("command", choices=["list_organizations",
                                             "rep_create_org", "rep_create_session",
                                             "download_file", "rep_get_doc_metadata",
-                                            "rep_list_docs","rep_add_subject",
+                                            "rep_list_docs",
+                                            "rep_add_subject", "rep_list_subjects",  # Added missing comma
                                             "rep_add_doc", "rep_delete_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
+
 
     # Parse os argumentos até o comando (ignora os argumentos específicos do comando)
     args, unknown_args = parser.parse_known_args()
@@ -360,6 +381,10 @@ def parse_args(state):
         command_parser.add_argument("key", help="key of the subject")
         command_parser.add_argument("credentials_file", help="Path to the credentials file")
 
+    elif args.command == "rep_list_subjects":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("-s", "--username", help="Username filter (optional)")
+
 
     # Analisa os argumentos específicos do comando usando unknown_args
 
@@ -367,22 +392,6 @@ def parse_args(state):
 
     # Retorna o estado, os argumentos principais e os argumentos do comando específico
     return state, args, command_args
-
-
-
-def save(state):
-    state_dir = os.path.join(os.path.expanduser('~'), '.sio')
-    state_file = os.path.join(state_dir, 'state.json')
-
-    if not os.path.exists(state_dir):
-      logger.debug('Creating state folder')
-      os.mkdir(state_dir)
-
-    with open(state_file, 'w') as f:
-        f.write(json.dumps(state, indent=4))
-
-
-
 
 
 state = load_state()
@@ -438,6 +447,11 @@ if args.command == "rep_add_subject":
         "credentials_file": command_args.credentials_file
     }
     print(add_subject(data, command_args.session_file))
+
+elif args.command == "rep_list_subjects":
+    session_file = command_args.session_file
+    username = command_args.username
+    print(list_subjects(session_file))
 
 if args.command == "rep_create_session":
     data = {
