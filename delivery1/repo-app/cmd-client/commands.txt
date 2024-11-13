@@ -23,7 +23,7 @@ To get document metadata (returned as json) :
 python3 client.py rep_get_doc_metadata "session_file" "test"
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
-python3 client.py rep_get_file 6490a5f0aa2b5e017278615b91f482f6fd8dd5a4973960c35fd074ca91534af5 -f  "output"
+python3 client.py rep_get_file 5237adc419736f6161af73fce723fcb5097b007c04c547d22e617d43f6562e3c -f  "output"
 
 To delete document :
 python3 client.py rep_delete_doc "session_file" "test"

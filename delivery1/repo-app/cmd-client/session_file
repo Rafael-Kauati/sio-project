@@ -2,8 +2,8 @@
     "message": "Session created successfully",
     "session_context": {
         "organization_name": "Org4",
-        "session_id": 3,
+        "session_id": 1,
         "session_key": "key",
-        "subject_username": "gabs"
+        "subject_username": "anon3"
     }
 }

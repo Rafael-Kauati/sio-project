@@ -90,7 +90,7 @@ class DocumentController:
 
         # Descriptografa a chave do arquivo usando a função de descriptografia
         decrypted_file_key = decrypt_file_key_with_ec_master(encrypted_file_key, iv, tag, ephemeral_public_key)
-
+        print(f"\n file key recupada da encryptaçao : {decrypted_file_key}")
         # Define o caminho do arquivo usando o file_handle
         file_path = f"./api/uploads/{document.name}"
 
@@ -330,7 +330,7 @@ class SessionController:
 
         # Carrega a chave pública para a criptografia da chave do arquivo
         public_key = load_ec_public_key(private_key_path)
-
+        print(f" file key antes de encryptaçao: {file_encryption_key}")
         # Criptografa a chave do arquivo com a chave pública mestre
         encrypted_file_key, ephemeral_public_key, iv, tag = encrypt_file_key_with_ec_master(
             file_encryption_key, public_key
