@@ -106,16 +106,24 @@ def add_document(data, file_path):
     else:
         logger.error(f"Failed to add document: {response.status_code}")
 
-def get_document_metadata(session_key, document_name):
+def get_document_metadata(session_file, document_name):
+    # URL do endpoint para obter metadados do documento
     url = f"http://{state['REP_ADDRESS']}/document/metadata"
+
+    # Abrir o arquivo de sessão para ler o session_key
+    with open(session_file, 'r') as session_file:
+        session_data = json.load(session_file)
+        session_key = session_data["session_context"]["session_key"]
+
+    # Definir cabeçalhos e parâmetros
     headers = {'session_key': session_key}
     params = {'document_name': document_name}
+
+    # Enviar requisição GET para o endpoint de metadados do documento
     response = requests.get(url, headers=headers, params=params)
-    if response.status_code == 200:
-        logger.info("Document metadata retrieved successfully.")
-        return response.json()
-    else:
-        logger.error(f"Failed to get document metadata: {response.status_code}")
+
+    # Retornar a resposta
+    return response.json()
 
 def download_document(session_key, document_name):
     url = f"http://{state['REP_ADDRESS']}/download_document/{session_key}/{document_name}"
@@ -258,7 +266,8 @@ def parse_args(state):
     # Define o argumento principal 'command' e os argumentos opcionais
     parser.add_argument("command", choices=["list_organizations",
                                             "rep_create_org", "rep_create_session",
-                                            "download_file", "rep_list_docs","add_subject", "rep_add_doc"], help="Command to execute")
+                                            "download_file", "rep_get_doc_metadata",
+                                            "rep_list_docs","add_subject", "rep_add_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -302,6 +311,9 @@ def parse_args(state):
         command_parser.add_argument("session_key", help="Session key for the subject")
         command_parser.add_argument("subject_data", help="Subject data to add")
 
+    elif args.command == "rep_get_doc_metadata":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("document_name", help="Document name")
 
     elif args.command == "rep_add_doc":
         command_parser.add_argument("session_file", help="Path to session file")
@@ -392,8 +404,10 @@ if args.command == "rep_create_session":
     }
     print(create_session(data, command_args.session_file))
 
-elif args.command == "download_file":
-    download_file(command_args.filename)
+elif args.command == "rep_get_doc_metadata":
+
+    print(get_document_metadata(command_args.session_file, command_args.document_name))
+
 
 elif args.command == "add_subject":
     data = {
