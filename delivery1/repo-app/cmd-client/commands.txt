@@ -14,3 +14,6 @@ python3 client.py rep_list_docs "session_file"
 
 To get document metadata (returned as json) :
 python3 client.py rep_get_doc_metadata "session_file" "test"
+
+To delete document :
+python3 client.py rep_delete_doc "session_file" "test"

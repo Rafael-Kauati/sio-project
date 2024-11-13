@@ -214,6 +214,15 @@ def get_documents(data):
         logger.error(f"Failed to retrieve documents: {response.status_code}")
         return None
 
+def delete_document(session_file, document_name):
+    with open(session_file, 'r') as session_file:
+        session_data = json.load(session_file)
+        session_key = session_data["session_context"]["session_key"]
+
+    url = f"http://{state['REP_ADDRESS']}/delete_document/{session_key}/{document_name}"
+    response = requests.delete(url)
+    return response
+
 
 
 def load_state():
@@ -267,7 +276,8 @@ def parse_args(state):
     parser.add_argument("command", choices=["list_organizations",
                                             "rep_create_org", "rep_create_session",
                                             "download_file", "rep_get_doc_metadata",
-                                            "rep_list_docs","add_subject", "rep_add_doc"], help="Command to execute")
+                                            "rep_list_docs","add_subject",
+                                            "rep_add_doc", "rep_delete_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -327,6 +337,10 @@ def parse_args(state):
             "-d", "--date",
             help="Date filter with type (format: 'nt YYYY-MM-DD' for new, 'ot YYYY-MM-DD' for old, 'et YYYY-MM-DD' for exact)"
         )
+
+    elif args.command == "rep_delete_doc":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("document_name", help="Document name")
     # Analisa os argumentos específicos do comando usando unknown_args
     command_args = command_parser.parse_args(unknown_args)
 
@@ -408,7 +422,9 @@ elif args.command == "rep_get_doc_metadata":
 
     print(get_document_metadata(command_args.session_file, command_args.document_name))
 
+elif args.command == "rep_delete_doc":
 
+    print(delete_document(command_args.session_file, command_args.document_name))
 elif args.command == "add_subject":
     data = {
         "session_key": command_args.session_key,
