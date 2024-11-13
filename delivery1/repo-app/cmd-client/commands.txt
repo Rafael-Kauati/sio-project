@@ -5,5 +5,9 @@ To create a new session in that org :
 python3 client.py rep_create_session "Org4"  "anon3"  "password"  "key"  credentials session_file
 
 
-To upload a doc with the session(nota: este command assume que o document nao esta encryptado, entao ele o encrypta e envia junta da encrypted key e o file handle) :
+To upload a doc with the session(note: this command assumes that the document is not encrypted, so it encrypts it and sends the encrypted key and the file handle within the request) :
 python3 client.py rep_add_doc "session_file" "test" "./test"
+
+
+To list files from a organization of the session key :
+python3 client.py rep_list_docs "session_file"

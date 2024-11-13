@@ -175,6 +175,37 @@ def upload_document(data):
 
     return response
 
+def get_documents(data):
+    # Carrega o arquivo de sessão para obter a session_key
+    with open(data['session_file'], 'r') as session_file:
+        session_data = json.load(session_file)
+        session_key = session_data["session_context"]["session_key"]
+
+    # Configura os parâmetros da URL com os argumentos opcionais
+    params = {}
+    if data["username"]:
+        params["username"] = data["username"]
+    if data["date"]:
+        date_parts = data["date"].split(' ')
+        if len(date_parts) == 2:
+            filter_type, date_str = date_parts
+            params["date"] = date_str
+            params["filter_type"] = filter_type
+        else:
+            print("Formato de data incorreto. Use <filter_type> <date> (por exemplo, 'nt 2023-01-01').")
+            return
+
+    # Faz a requisição GET para o endpoint usando session_key
+    url = f"http://{state['REP_ADDRESS']}/sessions/{session_key}/documents"
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        logger.info("Documents retrieved successfully.")
+        return response.json()
+    else:
+        logger.error(f"Failed to retrieve documents: {response.status_code}")
+        return None
+
 
 
 def load_state():
@@ -227,7 +258,7 @@ def parse_args(state):
     # Define o argumento principal 'command' e os argumentos opcionais
     parser.add_argument("command", choices=["list_organizations",
                                             "rep_create_org", "rep_create_session",
-                                            "download_file", "add_subject", "rep_add_doc"], help="Command to execute")
+                                            "download_file", "rep_list_docs","add_subject", "rep_add_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -276,8 +307,14 @@ def parse_args(state):
         command_parser.add_argument("session_file", help="Path to session file")
         command_parser.add_argument("document_name", help="Document name")
         command_parser.add_argument("file", help="Path to file encrypted file")
-    # Adiciona outros comandos conforme necessário
 
+    elif args.command == "rep_list_docs":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("-s", "--username", help="Username filter (optional)")
+        command_parser.add_argument(
+            "-d", "--date",
+            help="Date filter with type (format: 'nt YYYY-MM-DD' for new, 'ot YYYY-MM-DD' for old, 'et YYYY-MM-DD' for exact)"
+        )
     # Analisa os argumentos específicos do comando usando unknown_args
     command_args = command_parser.parse_args(unknown_args)
 
@@ -324,6 +361,15 @@ elif args.command == "rep_add_doc":
         "file": command_args.file,
     }
     print(upload_document(data))
+
+
+elif args.command == "rep_list_docs":
+    data = {
+        "session_file": command_args.session_file,
+        "username": command_args.username,
+        "date": command_args.date,
+    }
+    print(get_documents(data))
 
 elif args.command == "rep_create_org":
     data = {
