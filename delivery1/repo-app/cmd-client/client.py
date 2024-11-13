@@ -10,22 +10,39 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def list_organizations():
-    url = f"http://{state['REP_ADDRESS']}/organizations" #mudar isto para o caminho da api
+    url = f"http://{state['REP_ADDRESS']}/organizations"
     response = requests.get(url)
+    print(response.content)
     if response.status_code == 200:
         logger.info("Organizations listed successfully.")
         return response.json()
     else:
         logger.error(f"Failed to list organizations: {response.status_code}")
 
+
 def create_organization(data):
+    # Formatar o corpo da requisição conforme o exemplo dado
+    with open(data['public_key_file'], 'r') as key_file:
+        public_key = key_file.read()
+
+    payload = {
+        "name": data['name'],
+        "subject": {
+            "username": data['username'],
+            "full_name": data['full_name'],
+            "email": data['email'],
+            "public_key": public_key
+        }
+    }
+
     url = f"http://{state['REP_ADDRESS']}/organizations"
-    response = requests.post(url, json=data)
-    if response.status_code == 200:
+    response = requests.post(url, json=payload)
+    if response.status_code == 201:
         logger.info("Organization created successfully.")
-        return response.json()
+        return 0
     else:
         logger.error(f"Failed to create organization: {response.status_code}")
+
 
 def create_session(data):
     url = f"http://{state['REP_ADDRESS']}/sessions"
@@ -146,25 +163,26 @@ def parse_env(state):
 def parse_args(state):
     parser = argparse.ArgumentParser()
 
-    # Add a 'command' argument to identify which action to perform
-    parser.add_argument("command", help="Command to execute (e.g., list_organizations, create_organization, etc.)")
-
-    # Define other generic arguments
+    # Define o argumento principal 'command' e os argumentos opcionais
+    parser.add_argument("command", choices=["list_organizations", "create_organization", "create_session", "download_file", "add_subject"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
 
-    args = parser.parse_args()
+    # Parse os argumentos até o comando (ignora os argumentos específicos do comando)
+    args, unknown_args = parser.parse_known_args()
 
-    # Set verbosity level
+    # Configura o nível de verbosidade
     if args.verbose:
         logger.setLevel(logging.DEBUG)
         logger.info('Setting log level to DEBUG')
 
-    # Command-specific argument parsing
+    # Sub-parser para argumentos específicos do comando
     command_parser = argparse.ArgumentParser()
 
     if args.command == "create_organization":
+        command_parser.add_argument("organization", help="Organization ID")
+        command_parser.add_argument("username", help="Username for the organization admin")
         command_parser.add_argument("name", help="Name of the organization")
         command_parser.add_argument("email", help="Email of the organization")
         command_parser.add_argument("public_key_file", help="Path to the public key file for the organization")
@@ -181,13 +199,14 @@ def parse_args(state):
         command_parser.add_argument("session_key", help="Session key for the subject")
         command_parser.add_argument("subject_data", help="Subject data to add")
 
-    # Add other commands here as needed
+    # Adiciona outros comandos conforme necessário
 
-    # Parse the arguments for the selected command
-    command_args = command_parser.parse_args(sys.argv[2:])
+    # Analisa os argumentos específicos do comando usando unknown_args
+    command_args = command_parser.parse_args(unknown_args)
 
-    # Return the parsed state and arguments
+    # Retorna o estado, os argumentos principais e os argumentos do comando específico
     return state, args, command_args
+
 
 
 def save(state):
@@ -223,11 +242,14 @@ if args.command == "list_organizations":
 
 elif args.command == "create_organization":
     data = {
-        "name": command_args.name,
+        "name": command_args.organization,
+        "username": command_args.username,
+        "full_name": command_args.name,
         "email": command_args.email,
         "public_key_file": command_args.public_key_file
     }
     create_organization(data)
+
 
 elif args.command == "create_session":
     data = {
@@ -247,7 +269,4 @@ elif args.command == "add_subject":
     }
     add_subject(data)
 
-""" Do something """
-req = requests.get(f'http://{state['REP_ADDRESS']}/organizations')
-print(req.json)
 save(state)
