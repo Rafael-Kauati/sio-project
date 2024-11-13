@@ -178,7 +178,7 @@ def add_document_route():
     result = SessionController.upload_document_to_organization(session_key, file_name, file,file_handle, file_encryption_key)
 
     # Retorna o resultado conforme o sucesso ou falha
-    return jsonify(result), 201 if "id" in result else 400
+    return jsonify(result)
 
 
 

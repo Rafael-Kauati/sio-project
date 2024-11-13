@@ -1,0 +1,9 @@
+To create a new org :
+python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "../public_key.pem"
+
+To create a new session in that org :
+python3 client.py rep_create_session "Org4"  "anon3"  "password"  "key"  credentials session_file
+
+
+To upload a doc with the session(nota: este command assume que o document nao esta encryptado, entao ele o encrypta e envia junta da encrypted key e o file handle) :
+python3 client.py rep_add_doc "session_file" "test" "./test"

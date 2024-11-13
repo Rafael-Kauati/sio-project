@@ -1,9 +1,11 @@
+import hashlib
 import os
 import sys
 import argparse
 import logging
 import json
 import requests
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 logging.basicConfig(format='%(levelname)s\t- %(message)s')
 logger = logging.getLogger()
@@ -133,6 +135,48 @@ def delete_document(session_key, document_name):
     else:
         logger.error(f"Failed to delete document '{document_name}': {response.status_code}")
 
+def encrypt_file_with_aes(file_data):
+    aes_key = os.urandom(32)  # 256-bit AES key
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+
+    # Padding para múltiplos de 16 bytes
+    padding_length = 16 - len(file_data) % 16
+    file_data += bytes([padding_length] * padding_length)
+
+    encrypted_file_data = encryptor.update(file_data) + encryptor.finalize()
+    return encrypted_file_data, aes_key, iv
+
+def upload_document(data):
+    # Carrega o arquivo de sessão para obter a session_key
+    with open(data['session_file'], 'r') as session_file:
+        session_data = json.load(session_file)
+        session_key = session_data["session_context"]["session_key"]
+
+    # Carrega e criptografa o arquivo
+    with open(data['file'], 'rb') as file:
+        file_data = file.read()
+
+    encrypted_file_data, aes_key, iv = encrypt_file_with_aes(file_data)
+    file_handle = hashlib.sha256(encrypted_file_data).hexdigest()
+
+    # Faz a requisição para enviar o documento criptografado
+    response = requests.post(
+        f"http://{state['REP_ADDRESS']}/add_document",
+        files={'file': encrypted_file_data},
+        data={
+            'session_key': session_key,  # Utiliza a session_key extraída
+            'file_name': data['document_name'],  # Nome do documento
+            'file_encryption_key': aes_key.hex(),
+            'file_handle': file_handle
+        }
+    )
+
+    return response
+
+
+
 def load_state():
     state = {}
     state_dir = os.path.join(os.path.expanduser('~'), '.sio')
@@ -181,7 +225,9 @@ def parse_args(state):
     parser = argparse.ArgumentParser()
 
     # Define o argumento principal 'command' e os argumentos opcionais
-    parser.add_argument("command", choices=["list_organizations", "create_organization", "create_session", "download_file", "add_subject"], help="Command to execute")
+    parser.add_argument("command", choices=["list_organizations",
+                                            "rep_create_org", "rep_create_session",
+                                            "download_file", "add_subject", "rep_add_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -197,14 +243,14 @@ def parse_args(state):
     # Sub-parser para argumentos específicos do comando
     command_parser = argparse.ArgumentParser()
 
-    if args.command == "create_organization":
+    if args.command == "rep_create_org":
         command_parser.add_argument("organization", help="Organization ID")
         command_parser.add_argument("username", help="Username for the organization admin")
         command_parser.add_argument("name", help="Name of the organization")
         command_parser.add_argument("email", help="Email of the organization")
         command_parser.add_argument("public_key_file", help="Path to the public key file for the organization")
 
-    if args.command == "create_session":
+    if args.command == "rep_create_session":
 
         command_parser.add_argument("organization", help="Organization name")
 
@@ -225,6 +271,11 @@ def parse_args(state):
         command_parser.add_argument("session_key", help="Session key for the subject")
         command_parser.add_argument("subject_data", help="Subject data to add")
 
+
+    elif args.command == "rep_add_doc":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("document_name", help="Document name")
+        command_parser.add_argument("file", help="Path to file encrypted file")
     # Adiciona outros comandos conforme necessário
 
     # Analisa os argumentos específicos do comando usando unknown_args
@@ -266,7 +317,15 @@ if 'REP_PUB_KEY' not in state:
 if args.command == "list_organizations":
     list_organizations()
 
-elif args.command == "create_organization":
+elif args.command == "rep_add_doc":
+    data = {
+        "session_file": command_args.session_file,
+        "document_name": command_args.document_name,
+        "file": command_args.file,
+    }
+    print(upload_document(data))
+
+elif args.command == "rep_create_org":
     data = {
         "name": command_args.organization,
         "username": command_args.username,
@@ -277,7 +336,7 @@ elif args.command == "create_organization":
     create_organization(data)
 
 
-if args.command == "create_session":
+if args.command == "rep_create_session":
     data = {
         "organization": command_args.organization,
         "username": command_args.username,
