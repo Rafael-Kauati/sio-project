@@ -44,14 +44,31 @@ def create_organization(data):
         logger.error(f"Failed to create organization: {response.status_code}")
 
 
-def create_session(data):
+def create_session(data, session_file):
+    # Formata a carga da requisição conforme o formato especificado
+    with open(data['credentials_file'], 'r') as cred_file:
+        credentials = json.load(cred_file)
+
+    payload = {
+        "username": data['username'],
+        "organization_name": data['organization'],
+        "identifier": "orgsession",
+        "session_key": data['key'],  # Atualize conforme necessário
+        "password": data['password'],
+        "credentials": credentials
+    }
+
     url = f"http://{state['REP_ADDRESS']}/sessions"
-    response = requests.post(url, json=data)
-    if response.status_code == 200:
-        logger.info("Session created successfully.")
-        return response.json()
+    response = requests.post(url, json=payload)
+
+    if response.status_code == 201:
+        # Salva a resposta no arquivo de sessão
+        with open(session_file, 'w') as file:
+            json.dump(response.json(), file, indent=4)
+        return 0
     else:
-        logger.error(f"Failed to create session: {response.status_code}")
+        #logger.error(f"Failed to create session: {response.status_code}")
+        return 1
 
 def download_file(filename):
     url = f"http://{state['REP_ADDRESS']}/download/{filename}"
@@ -187,10 +204,19 @@ def parse_args(state):
         command_parser.add_argument("email", help="Email of the organization")
         command_parser.add_argument("public_key_file", help="Path to the public key file for the organization")
 
-    elif args.command == "create_session":
+    if args.command == "create_session":
+
+        command_parser.add_argument("organization", help="Organization name")
+
         command_parser.add_argument("username", help="Username for the session")
+
         command_parser.add_argument("password", help="Password for the session")
+
+        command_parser.add_argument("key", help="key for the session")
+
         command_parser.add_argument("credentials_file", help="Path to the credentials file")
+
+        command_parser.add_argument("session_file", help="Path to save the session file")
 
     elif args.command == "download_file":
         command_parser.add_argument("filename", help="File to download")
@@ -251,13 +277,15 @@ elif args.command == "create_organization":
     create_organization(data)
 
 
-elif args.command == "create_session":
+if args.command == "create_session":
     data = {
+        "organization": command_args.organization,
         "username": command_args.username,
         "password": command_args.password,
+        "key": command_args.key,
         "credentials_file": command_args.credentials_file
     }
-    create_session(data)
+    print(create_session(data, command_args.session_file))
 
 elif args.command == "download_file":
     download_file(command_args.filename)
