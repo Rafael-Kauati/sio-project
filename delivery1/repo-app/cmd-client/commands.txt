@@ -10,4 +10,4 @@ python3 client.py rep_add_doc "session_file" "test" "./test"
 
 
 To list files from a organization of the session key :
-python3 client.py rep_list_docs "session_file"
+python3 client.py c "session_file"
