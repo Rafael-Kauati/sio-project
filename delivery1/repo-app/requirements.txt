@@ -8,3 +8,4 @@ requests
 Flask-Migrate
 flasgger
 flask-restx
+cryptography
