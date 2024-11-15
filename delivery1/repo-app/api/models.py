@@ -22,6 +22,7 @@ class Document(db.Model):
     ephemeral_public_key = db.Column(db.LargeBinary, nullable=False)  # Nova coluna para chave pública efêmera
     deleter = db.Column(db.String(128), nullable=True)
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    encryption_vars = db.Column(db.JSON, nullable=True)
 
     def to_dict(self):
         return {

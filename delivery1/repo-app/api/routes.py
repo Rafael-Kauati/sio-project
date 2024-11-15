@@ -146,28 +146,20 @@ def add_document_route():
     session_key = request.form.get("session_key")
     file_name = request.form.get("file_name")
     file = request.files.get("file")
-    file_encryption_key = request.form['file_encryption_key']  # Aqui recebendo como string
-    file_handle = request.form.get('file_handle')  # Recebe o file_handle enviado pelo cliente
-
-    # Gera o hash SHA256 do arquivo
-    file_content = file.read()
-
-    # Envia o hash como um campo adicional
-    logger.info(f"Received file: {file.filename}")
-    file.seek(0)
-    file_content = file.read()
-    logger.info(f"File content length: {len(file_content)}")
-    file_hash = hashlib.sha256(file_content).hexdigest()
-    logger.info(f"Calculated file hash: {file_hash}")
+    file_encryption_key = request.form['file_encryption_key']
+    file_handle = request.form.get('file_handle')
+    encryption_vars = request.form.get('encryption_vars')  # Recebe o JSON de encryption_vars
 
     # Validação de campos obrigatórios
-    if not all([session_key, file_name, file, file_encryption_key, file_handle]):
+    if not all([session_key, file_name, file, file_encryption_key, file_handle, encryption_vars]):
         logger.warning("Missing required fields for adding document.")
         return jsonify({
-            "error": "Todos os campos são obrigatórios: session_key, document_name, arquivo, file_encryption_key e file_handle"}), 400
+            "error": "Todos os campos são obrigatórios: session_key, document_name, arquivo, file_encryption_key, file_handle e encryption_vars"}), 400
 
     # Gera o hash do arquivo e valida se corresponde ao file_handle recebido
-      # Gera o hash SHA256 do conteúdo do arquivo
+    file.seek(0)
+    file_content = file.read()
+    file_hash = hashlib.sha256(file_content).hexdigest()
     if file_handle != file_hash:
         logger.warning("file_handle não corresponde ao hash do arquivo enviado.")
         return jsonify({
@@ -175,10 +167,13 @@ def add_document_route():
 
     # Chama o controller para fazer o processamento e salvar o documento
     logger.info(f"Adding document to organization with session key: {session_key} and document name: {file_name}")
-    result = SessionController.upload_document_to_organization(session_key, file_name, file,file_handle, file_encryption_key)
+    result = SessionController.upload_document_to_organization(
+        session_key, file_name, file, file_handle, file_encryption_key, encryption_vars
+    )
 
     # Retorna o resultado conforme o sucesso ou falha
     return jsonify(result)
+
 
 
 

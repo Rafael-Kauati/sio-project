@@ -174,20 +174,15 @@ def download_document(file_handle, file=None):
     return response.json()
 
 
-
-
-def encrypt_file_with_aes(file_data):
-    aes_key = os.urandom(32)  # 256-bit AES key
-    iv = os.urandom(16)
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+def encrypt_file_with_chacha20(file_data):
+    chacha_key = os.urandom(32)  # 256-bit ChaCha20 key
+    nonce = os.urandom(16)  # 128-bit nonce
+    cipher = Cipher(algorithms.ChaCha20(chacha_key, nonce), mode=None)
     encryptor = cipher.encryptor()
 
-    # Padding para múltiplos de 16 bytes
-    padding_length = 16 - len(file_data) % 16
-    file_data += bytes([padding_length] * padding_length)
-
     encrypted_file_data = encryptor.update(file_data) + encryptor.finalize()
-    return encrypted_file_data, aes_key, iv
+    return encrypted_file_data, chacha_key, nonce
+
 
 def upload_document(data):
     # Carrega o arquivo de sessão para obter a session_key
@@ -199,8 +194,14 @@ def upload_document(data):
     with open(data['file'], 'rb') as file:
         file_data = file.read()
 
-    encrypted_file_data, aes_key, iv = encrypt_file_with_aes(file_data)
+    # Usa ChaCha20 para criptografar
+    encrypted_file_data, chacha_key, nonce = encrypt_file_with_chacha20(file_data)
     file_handle = hashlib.sha256(encrypted_file_data).hexdigest()
+
+    # Cria o dicionário para 'encryption_vars'
+    encryption_vars = {
+        'nonce': nonce.hex()
+    }
 
     # Faz a requisição para enviar o documento criptografado
     response = requests.post(
@@ -209,12 +210,14 @@ def upload_document(data):
         data={
             'session_key': session_key,  # Utiliza a session_key extraída
             'file_name': data['document_name'],  # Nome do documento
-            'file_encryption_key': aes_key.hex(),
-            'file_handle': file_handle
+            'file_handle': file_handle,
+            'file_encryption_key': chacha_key.hex(),
+            'encryption_vars': json.dumps(encryption_vars)  # Converte para JSON string
         }
     )
 
     return response
+
 
 def get_documents(data):
     # Carrega o arquivo de sessão para obter a session_key

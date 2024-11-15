@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives import serialization
@@ -276,7 +277,7 @@ class SessionController:
         return {"metadata": metadata}, 200
 
     @staticmethod
-    def upload_document_to_organization(session_key, file_name, file, file_encryption_key, file_handle,
+    def upload_document_to_organization(session_key, file_name, file, file_handle, file_encryption_key, encryption_vars,
                                         private_key_path="master_key.pem.pub"):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
@@ -291,6 +292,7 @@ class SessionController:
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_name)
         file.seek(0)  # Move o ponteiro de leitura do arquivo para o início antes de salvar
         file.save(filepath)
+        print(f"Encrypting vars received: {json.loads(encryption_vars)}")
 
         # Carrega a chave pública para a criptografia da chave do arquivo
         public_key = load_ec_public_key(private_key_path)
@@ -309,7 +311,7 @@ class SessionController:
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
-        # Cria um novo documento, armazenando `iv`, `tag` e `ephemeral_public_key`
+        # Cria um novo documento, incluindo o campo `encryption_vars`
         new_document = Document(
             document_handle=file_name,
             name=file_name,
@@ -321,7 +323,8 @@ class SessionController:
             encrypted_file_key=encrypted_file_key,  # Salva a chave de criptografia criptografada
             iv=iv,  # Armazena o IV diretamente
             tag=tag,  # Armazena o TAG diretamente
-            ephemeral_public_key=ephemeral_public_key_serialized  # Armazena a chave pública efêmera
+            ephemeral_public_key=ephemeral_public_key_serialized,  # Armazena a chave pública efêmera
+            encryption_vars=json.loads(encryption_vars)  # Converte o JSON de string para dicionário e armazena
         )
 
         # Adiciona e salva o documento no banco de dados
@@ -329,8 +332,6 @@ class SessionController:
         db.session.commit()
 
         return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
-
-
 
     @staticmethod
     def add_subject_to_organization(session_key, username, name, email, public_key):
