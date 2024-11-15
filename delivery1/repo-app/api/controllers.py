@@ -59,13 +59,7 @@ class DocumentController:
         documents = query.all()
 
         return [doc.to_dict() for doc in documents]  # Suponha que você tenha um método to_dict em Document
-    @staticmethod
-    def upload_document():
-        data = request.json
-        document = Document(**data)
-        db.session.add(document)
-        db.session.commit()
-        return jsonify({'message': 'Document uploaded successfully'}), 201
+
 
     @staticmethod
     def download_document(file_handle):
@@ -125,12 +119,7 @@ class DocumentController:
             abort(404, description="File not found.")  # Retorna erro 404 se o arquivo não for encontrado
     '''
 
-    @staticmethod
-    def delete_document(file_handle):
-        document = Document.query.filter_by(file_handle=file_handle).first_or_404()
-        db.session.delete(document)
-        db.session.commit()
-        return jsonify({'message': 'Document deleted successfully'}), 204
+
 
 class OrganizationController:
     @staticmethod
@@ -241,32 +230,7 @@ class SessionController:
         else:
             return {"success": False, "message": "Document not found"}, 400
 
-    @staticmethod
-    def download_document(session_key, document_name):
-        # Verifica a sessão e a organização correspondente
-        session = check_session(session_key)
-        if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
-        
-        organization = session.organization
 
-        # Busca o documento na organização especificada
-        document = Document.query.filter_by(
-            organization_id=organization.id, document_handle=document_name
-        ).first()
-
-        if not document:
-            return None  # Documento não encontrado
-
-        # Retorna o arquivo para download
-        file_path = document.file_handle
-        try:
-            return send_file(file_path, as_attachment=True)
-        except FileNotFoundError:
-            return None  # Arquivo não encontrado
-        except Exception as e:
-            print(f"Erro ao enviar arquivo: {e}")
-            return None
 
     @staticmethod
     def get_document_metadata(session_key, document_name):
@@ -366,37 +330,7 @@ class SessionController:
 
         return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
 
-    @staticmethod
-    def add_document_to_organization(session_key, document_name, file_handle):
-        session = check_session(session_key)
-        if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
 
-        # Obtém a organização e o subject associados à sessão
-        organization = session.organization
-        subject = session.subject
-        if not organization or not subject:
-            return {"error": "Organização ou Subject associado à sessão não encontrado."}
-
-        # Cria um novo Document associado à organização e ao subject como criador
-        new_document = Document(
-            document_handle=f"handle_{datetime.utcnow().timestamp()}",
-            name=document_name,
-            create_date=datetime.utcnow(),
-            creator=subject.username,  # Nome do usuário associado ao Subject como criador
-            file_handle=file_handle,
-            acl={},  # ACL padrão ou configurável
-            organization_id=organization.id
-        )
-
-        # Adiciona e confirma a transação
-        try:
-            db.session.add(new_document)
-            db.session.commit()
-            return {"id": new_document.id, "message": "Documento adicionado com sucesso."}
-        except Exception as e:
-            db.session.rollback()
-            return {"error": f"Ocorreu um erro ao adicionar o documento: {str(e)}"}
 
     @staticmethod
     def add_subject_to_organization(session_key, username, name, email, public_key):
