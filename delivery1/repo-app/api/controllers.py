@@ -181,7 +181,7 @@ class SessionController:
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
-        
+
     @staticmethod
     def delete_document_from_organization(session_key, document_name):
         # Obter a sessão associada à session key
@@ -192,46 +192,57 @@ class SessionController:
         # Obter a organização associada à sessão
         organization = session.organization
         if not organization:
-            return {"success": False, "message": "No organization associated with this session"}
+            return {"success": False, "message": "No organization associated with this session"}, 404
 
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return {"success": False, "message": "No subject associated with this session"}, 404
 
         # Buscar o documento na base de dados
         document = db.session.query(Document).filter_by(
             organization_id=organization.id, document_handle=document_name
         ).first()
 
-        print(f"Encrypted file key recuperado para descriptografia: {document.encrypted_file_key}")
-        encrypted_file_key = document.encrypted_file_key
-        iv = document.iv  # Certifique-se de que o iv está sendo obtido corretamente
-        tag = document.tag  # Certifique-se de que o tag está sendo obtido corretamente
-        ephemeral_public_key = document.ephemeral_public_key  # Obtém a chave pública efêmera armazenada
-        print(f"IV recuperado: {iv}")
-        print(f"Tag recuperado: {tag}")
+        if not document:
+            return {"success": False, "message": "Document not found"}, 404
 
-        # Verifica se os dados de criptografia estão presentes
+        # Verificar se os dados de criptografia estão presentes
+        encrypted_file_key = document.encrypted_file_key
+        iv = document.iv
+        tag = document.tag
+        ephemeral_public_key = document.ephemeral_public_key
+
         if not encrypted_file_key or not iv or not tag or not ephemeral_public_key:
             return {'error': 'Cryptography data not found for this document'}, 404
 
-        # Descriptografa a chave do arquivo usando a função de descriptografia
-        decrypted_file_key = decrypt_file_key_with_ec_master(encrypted_file_key, iv, tag, ephemeral_public_key)
+        # Descriptografar a chave do arquivo
+        try:
+            decrypted_file_key = decrypt_file_key_with_ec_master(encrypted_file_key, iv, tag, ephemeral_public_key)
+        except Exception as e:
+            return {'error': f'Failed to decrypt file key: {str(e)}'}, 500
 
-        if document:
-            # Deletar o arquivo do sistema de arquivos
-            try:
-                file_path = f"./api/uploads/{document.name}"  # Usar o caminho do arquivo armazenado
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+        # Limpar os dados do documento no banco de dados
+        try:
+            file_handle = document.file_handle
+            document.file_handle = None
+            document.encrypted_file_key = None
+            encryption_metadata = document.encryption_vars
+            document.encryption_vars = None
+            document.deleter = subject.username  # Registrar o deleter
+            db.session.commit()
 
-                # Deletar o documento da base de dados
-                db.session.delete(document)
-                db.session.commit()
-                return jsonify({"success": True, "message": "Document deleted successfully", "file_key":decrypted_file_key.hex(), "file_handle":document.file_handle}), 200
-            except Exception as e:
-                return {"success": False, "message": str(e)}, 404
-        else:
-            return {"success": False, "message": "Document not found"}, 400
-
-
+            return {
+                "success": True,
+                "message": "Document content deleted successfully",
+                "document name": document.name,
+                "file_key": decrypted_file_key.hex(),
+                "file_handle": file_handle,
+                "encryption_metadata" : encryption_metadata
+            }, 200
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Failed to update document: {str(e)}"}, 500
 
     @staticmethod
     def get_document_metadata(session_key, document_name):

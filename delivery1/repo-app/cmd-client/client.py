@@ -376,7 +376,7 @@ def delete_document(session_file, document_name):
 
     url = f"http://{state['REP_ADDRESS']}/delete_document/{session_key}/{document_name}"
     response = requests.delete(url)
-    return response
+    return response.json()
 
 def list_subjects(session_file, username=None):
     with open(session_file, 'r') as session_file:

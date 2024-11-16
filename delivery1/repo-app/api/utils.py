@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import cryptography
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 # Função para carregar a chave privada a partir de um arquivo PEM
 from cryptography.hazmat.primitives import serialization

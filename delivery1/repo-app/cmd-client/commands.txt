@@ -26,7 +26,7 @@ To get document metadata (the encryption metadata is stored in local file to be 
 python3 client.py rep_get_doc_metadata "session_file" "test"
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
-python3 client.py rep_get_file a78362f25d42ea39a4126755d2ffa7e128d2a68ec9a9552170da64ce97d0cd19 -f  "output"
+python3 client.py rep_get_file 2e1c9e65ddb98bf8a15448c12ac926a5cfaeb20585d8498e5974e86c36a2eca2 -f  "output"
 
 To decrypt an encrypted document (the document must be in the local machine), the decrypted data is also stored at a {encrypted_file}_decrypted file (automatically) :
 python3 client.py rep_decrypt_file "output" "test_encryption_data.json"
