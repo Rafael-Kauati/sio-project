@@ -199,6 +199,53 @@ def download_document(file_handle, file=None):
 
     return response.json()
 
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import json
+
+def decrypt_file(encrypted_file, encryption_metadata_file ):
+    """
+    Descriptografa um arquivo criptografado usando os metadados fornecidos.
+
+    :param encrypted_file: Caminho para o arquivo criptografado.
+    :param encryption_metadata_file: Caminho para o arquivo JSON contendo os metadados de criptografia.
+    :param output_file: Caminho opcional para salvar o conteúdo descriptografado.
+    :return: O conteúdo descriptografado (se output_file não for fornecido).
+    """
+    try:
+        # Ler o arquivo de metadados
+        with open(encryption_metadata_file, 'r') as meta_file:
+            metadata = json.load(meta_file)
+
+        # Obter a chave e o nonce do arquivo de metadados
+        file_key = bytes.fromhex(metadata.get("file_key"))
+        encryption_vars = json.loads(metadata.get("encryption_vars"))
+        nonce = bytes.fromhex(encryption_vars.get("nonce"))
+
+        if not file_key or not nonce:
+            raise ValueError("Metadados incompletos: 'file_key' ou 'nonce' ausentes.")
+
+        # Ler o conteúdo do arquivo criptografado
+        with open(encrypted_file, 'rb') as enc_file:
+            encrypted_data = enc_file.read()
+
+        # Configurar o decodificador ChaCha20
+        algorithm = algorithms.ChaCha20(file_key, nonce)
+        cipher = Cipher(algorithm, mode=None)
+        decryptor = cipher.decryptor()
+
+        # Descriptografar os dados
+        decrypted_data = decryptor.update(encrypted_data)
+        output_file = f"{encrypted_file}_decrypted"
+        # Salvar ou retornar o conteúdo descriptografado
+        with open(output_file, 'wb') as out_file:
+            out_file.write(decrypted_data)
+        print(f"Arquivo descriptografado salvo em: {output_file}")
+
+    except Exception as e:
+        print(f"Erro durante a descriptografia: {e}")
+        raise
+
+
 
 def encrypt_file_with_chacha20(file_data):
     chacha_key = os.urandom(32)  # 256-bit ChaCha20 key
@@ -398,7 +445,7 @@ def parse_args(state):
                                             "rep_list_docs",
                                             "rep_add_subject", "rep_list_subjects",  # Added missing comma
                                             "rep_add_doc", "rep_get_file","rep_delete_doc",
-                                            "rep_subject_credentials"], help="Command to execute")
+                                            "rep_subject_credentials", "rep_decrypt_file"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -419,6 +466,10 @@ def parse_args(state):
     if args.command == "rep_subject_credentials":
         command_parser.add_argument("password", help="Password to generate the key")
         command_parser.add_argument("credentials_file", help="file to store the key")
+
+    elif args.command == "rep_decrypt_file":
+        command_parser.add_argument("encrypted_file", help="FIle to be decrypted")
+        command_parser.add_argument("encryption_metadata_file", help="Data used to decrypt file")
 
     if args.command == "rep_create_org":
         command_parser.add_argument("organization", help="Organization ID")
@@ -519,6 +570,11 @@ elif args.command == "rep_subject_credentials":
     password = command_args.password
     crendentials_file = command_args.credentials_file
     print(gen_subject_file(password, crendentials_file))
+
+elif args.command == "rep_decrypt_file":
+    encrypted_file = command_args.encrypted_file
+    encryption_metadata_file = command_args.encryption_metadata_file
+    decrypt_file(encrypted_file, encryption_metadata_file)
 
 elif args.command == "rep_list_docs":
     data = {
