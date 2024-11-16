@@ -72,7 +72,7 @@ def create_session(data, session_file):
         "username": data['username'],
         "organization_name": data['organization'],
         #"identifier": "orgsession",
-        "session_key": data['key'],  # Atualize conforme necessário
+       #"session_key": credentials.get("public_key"),
         "password": data['password'],
         "credentials": credentials
     }
@@ -532,7 +532,7 @@ def parse_args(state):
 
         command_parser.add_argument("password", help="Password for the session")
 
-        command_parser.add_argument("key", help="key for the session")
+        #command_parser.add_argument("key", help="key for the session")
 
         command_parser.add_argument("credentials_file", help="Path to the credentials file")
 
@@ -666,7 +666,7 @@ if args.command == "rep_create_session":
         "organization": command_args.organization,
         "username": command_args.username,
         "password": command_args.password,
-        "key": command_args.key,
+        #"key": command_args.key,
         "credentials_file": command_args.credentials_file
     }
     print(create_session(data, command_args.session_file))

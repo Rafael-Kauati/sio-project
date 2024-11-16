@@ -1,8 +1,10 @@
 To create a new org :
 python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "../public_key.pem"
+python client.py rep_create_org "Org" "anon" "anon" "anon@example.com" "../public_key.pem"
 
 To create a new session in that org :
-python3 client.py rep_create_session "Org4"  "anon3"  "password"  "key"  credentials session_file
+python3 client.py rep_create_session "Org"  "anon"  "password"   credentials session_file
+python3 client.py rep_create_session "Org"  "anon"  "password"   credentials session_file
 
 To create a key pair for a subject:
 python3 client.py rep_subject_credentials "password" "credentials"
@@ -26,7 +28,7 @@ To get document metadata (the encryption metadata is stored in local file to be 
 python3 client.py rep_get_doc_metadata "session_file" "test"
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
-python3 client.py rep_get_file 2e1c9e65ddb98bf8a15448c12ac926a5cfaeb20585d8498e5974e86c36a2eca2 -f  "output"
+python3 client.py rep_get_file 94340a8dc7a82f12e81356496df0505f4c73ec0c2bef102eaf2a4fd851188fc5 -f  "output"
 
 To decrypt an encrypted document (the document must be in the local machine), the decrypted data is also stored at a {encrypted_file}_decrypted file (automatically) :
 python3 client.py rep_decrypt_file "output" "test_encryption_data.json"

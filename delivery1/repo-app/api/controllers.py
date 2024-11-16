@@ -1,9 +1,12 @@
 import base64
 import hashlib
 import json
+import secrets
+import string
 
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from flask import jsonify, request, send_file, abort
 from api.models import db, Document, Organization, Session, Subject, Role
 from sqlalchemy import text
@@ -14,16 +17,30 @@ from .utils import *
 from . import app  
 import os
 
-def check_session(key):
-    session = Session.query.filter_by(session_key=key).first()
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import base64
+from flask import request
 
-    if not session or not is_session_valid(session):
-        if session:
-            db.session.delete(session)  # Exclui a sessão expirada
-            db.session.commit()  # Commit para garantir a exclusão no banco
-        return None
+from flask import request
+import base64
 
-    # A sessão é válida, pode continuar com o processamento normal
+
+def check_session(session_key_from_url):
+    # Decodifica a chave de sessão que vem da URL
+    try:
+        session_key_decoded = base64.b64decode(session_key_from_url)
+    except Exception as e:
+        return None  # Caso a chave não seja válida em base64, retorna None
+
+    # Busca a sessão no banco usando a chave de sessão decodificada
+    session = Session.query.filter_by(session_key=session_key_from_url).first()
+
+    if not session:
+        return None  # Se não encontrar a sessão, retorna None
+
+    # A sessão foi encontrada e é válida
     return session
 
 
@@ -437,12 +454,9 @@ class SessionController:
         roles = [role.name for role in session.roles]
         return jsonify({"roles": roles}), 200
 
-    
     @staticmethod
     def create_session():
         data = request.json
-        session_key = data.get("session_key")
-        role = data.get("role")
 
         # Busca a organização pelo nome
         organization_name = data.get("organization_name")
@@ -455,10 +469,12 @@ class SessionController:
         if not subject:
             abort(404, description="Subject not found")
 
+        # Gerar uma chave de sessão aleatória alfanumérica de 32 caracteres
+        session_key = SessionController.generate_session_key(32)
+
         # Cria uma nova sessão
         new_session = Session(
-            #identifier=data.get("identifier"),
-            session_key=data.get("session_key"),
+            session_key=session_key,  # Armazenar a chave diretamente sem codificar em base64
             password=data.get("password"),
             credentials=data.get("credentials"),
             organization_id=organization.id,  # Associa à organização encontrada
@@ -475,11 +491,15 @@ class SessionController:
                 'session_id': new_session.id,
                 'organization_name': organization.name,
                 'subject_username': subject.username,
-                'session_key': new_session.session_key,
-                #'identifier': new_session.identifier,
-                # Adicione mais campos conforme necessário
+                'session_key': new_session.session_key,  # Retorna a chave gerada
             }
         }), 201
+
+    @staticmethod
+    def generate_session_key(length=32):
+        characters = string.ascii_letters + string.digits  # Letras maiúsculas, minúsculas e números
+        session_key = ''.join(secrets.choice(characters) for _ in range(length))
+        return session_key
 
     @staticmethod
     def assume_role():
