@@ -4,6 +4,9 @@ python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "../p
 To create a new session in that org :
 python3 client.py rep_create_session "Org4"  "anon3"  "password"  "key"  credentials session_file
 
+To create a key pair for a subject:
+python3 client.py rep_subject_credentials "password" "credentials"
+
 To create a new subject :
 python3 client.py rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com" "key2" "credentials"
 python3 client.py rep_create_session "Org4"  "gabs"  "password"  "key"  credentials session_file
@@ -23,9 +26,9 @@ To get document metadata (the encryption metadata is stored in local file to be 
 python3 client.py rep_get_doc_metadata "session_file" "test"
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
-python3 client.py rep_get_file 7133a3a2efce11333907ae5a7d5989213a81d672e35ef28e378bd15397f7bf42 -f  "output"
+python3 client.py rep_get_file a78362f25d42ea39a4126755d2ffa7e128d2a68ec9a9552170da64ce97d0cd19 -f  "output"
 
-To decrypt a encryted document (the document must be in the local machine) :
+To decrypt an encrypted document (the document must be in the local machine), the decrypted data is also stored at a {encrypted_file}_decrypted file (automatically) :
 python3 client.py rep_decrypt_file "output" "test_encryption_data.json"
 
 To delete document :

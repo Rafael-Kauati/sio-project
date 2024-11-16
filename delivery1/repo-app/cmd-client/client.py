@@ -122,20 +122,7 @@ def add_subject(data, session_file):
     return response
 
 
-def add_document(data, file_path):
-    url = f"http://{state['REP_ADDRESS']}/add_document"
-    with open(file_path, 'rb') as file:
-        files = {
-            'file': file,
-            'session_key': (None, data['session_key']),
-            'document_name': (None, data['document_name'])
-        }
-        response = requests.post(url, files=files)
-    if response.status_code == 201:
-        logger.info("Document added successfully.")
-        return response.json()
-    else:
-        logger.error(f"Failed to add document: {response.status_code}")
+
 
 
 def get_document_metadata(session_file, document_name):
@@ -250,27 +237,29 @@ def decrypt_file(encrypted_file, encryption_metadata_file ):
         # Obter a chave e o nonce do arquivo de metadados
         file_key = bytes.fromhex(metadata.get("file_key"))
         encryption_vars = json.loads(metadata.get("encryption_vars"))
-        nonce = bytes.fromhex(encryption_vars.get("nonce"))
+        if encryption_vars.get("alg") == "ChaCha20":
+            logger.info(f"Decrypting {encrypted_file} with {encryption_vars.get("alg")}")
+            nonce = bytes.fromhex(encryption_vars.get("nonce"))
 
-        if not file_key or not nonce:
-            raise ValueError("Metadados incompletos: 'file_key' ou 'nonce' ausentes.")
+            if not file_key or not nonce:
+                raise ValueError("Metadados incompletos: 'file_key' ou 'nonce' ausentes.")
+                # Configurar o decodificador ChaCha20
+            algorithm = algorithms.ChaCha20(file_key, nonce)
+            cipher = Cipher(algorithm, mode=None)
+            decryptor = cipher.decryptor()
+            # Ler o conteúdo do arquivo criptografado
+            with open(encrypted_file, 'rb') as enc_file:
+                encrypted_data = enc_file.read()
 
-        # Ler o conteúdo do arquivo criptografado
-        with open(encrypted_file, 'rb') as enc_file:
-            encrypted_data = enc_file.read()
 
-        # Configurar o decodificador ChaCha20
-        algorithm = algorithms.ChaCha20(file_key, nonce)
-        cipher = Cipher(algorithm, mode=None)
-        decryptor = cipher.decryptor()
 
-        # Descriptografar os dados
-        decrypted_data = decryptor.update(encrypted_data)
-        output_file = f"{encrypted_file}_decrypted"
-        # Salvar ou retornar o conteúdo descriptografado
-        with open(output_file, 'wb') as out_file:
-            out_file.write(decrypted_data)
-        print(f"Arquivo descriptografado salvo em: {output_file}")
+            # Descriptografar os dados
+            decrypted_data = decryptor.update(encrypted_data)
+            output_file = f"{encrypted_file}_decrypted"
+            # Salvar ou retornar o conteúdo descriptografado
+            with open(output_file, 'wb') as out_file:
+                out_file.write(decrypted_data)
+            print(f"Arquivo descriptografado salvo em: {output_file}")
 
     except Exception as e:
         print(f"Erro durante a descriptografia: {e}")
@@ -304,7 +293,8 @@ def upload_document(data):
 
     # Cria o dicionário para 'encryption_vars'
     encryption_vars = {
-        'nonce': nonce.hex()
+        'nonce': nonce.hex(),
+        'alg' : "ChaCha20"
     }
 
     # Faz a requisição para enviar o documento criptografado
