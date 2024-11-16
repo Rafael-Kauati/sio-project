@@ -99,7 +99,7 @@ class DocumentController:
 
         # Retorna tanto o conteúdo do arquivo quanto a chave desencriptada
         return {
-            'file_key': decrypted_file_key.decode('utf-8'),
+            #'file_key': decrypted_file_key.decode('utf-8'),
             'file_data': file_data,  # Dados binários do arquivo
             'file_name': document.name  # Nome do arquivo
         }, 200  # Retorna uma tupla com resposta e código de status

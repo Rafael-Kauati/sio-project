@@ -187,17 +187,48 @@ import requests
 
 
 def download_document(file_handle, file=None):
+    """
+    Faz o download de um documento criptografado e imprime o conteúdo como string.
+    Se o arquivo estiver criptografado, exibe os dados binários como string.
+
+    :param file_handle: Identificador do arquivo no servidor.
+    :param file: Caminho opcional para salvar o arquivo baixado.
+    :return: JSON com metadados ou None.
+    """
     url = f"http://{state['REP_ADDRESS']}/download/{file_handle}"
     response = requests.get(url)
 
-    # Check if the file parameter is not None
-    if file is not None:
-        with open(file, 'wb') as f:
-            f.write(response.content)  # Write the response content to the file
-        print(f"File saved as {file}")
-        return 0
+    # Verifica se o download foi bem-sucedido
+    if response.status_code != 200:
+        print(f"Erro ao baixar o arquivo: {response.status_code}")
+        return None
 
-    return response.json()
+    # Tenta interpretar a resposta como JSON
+    try:
+        # Retorna JSON se a resposta contiver metadados
+        return response.json()
+    except requests.exceptions.JSONDecodeError:
+        # Se falhar, assume que é um arquivo binário
+        pass
+
+    # Salva o conteúdo do arquivo em disco, se necessário
+    if file:
+        with open(file, 'wb') as f:
+            f.write(response.content)
+        print(f"Arquivo salvo como: {file}")
+
+    # Tenta converter o conteúdo binário em string
+    try:
+        content_as_string = response.content.decode('utf-8')  # Supondo que o conteúdo é texto UTF-8
+        print("\nConteúdo do arquivo como string:")
+        print(content_as_string)
+    except UnicodeDecodeError:
+        # Se não puder ser decodificado, exibe a representação hexadecimal
+        print("\nConteúdo não é texto legível. Mostrando como hexadecimal:")
+        print(response.content.hex())
+
+    return None
+
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import json
