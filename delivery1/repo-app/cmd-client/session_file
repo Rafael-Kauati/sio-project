@@ -1,9 +1,9 @@
 {
     "message": "Session created successfully",
     "session_context": {
-        "organization_name": "Org",
-        "session_id": 2,
-        "session_key": "pXc5sjlxbVWykSVHN0NingGDIF9ZgWDi",
-        "subject_username": "anon"
+        "organization_name": "Org4",
+        "session_id": 1,
+        "session_key": "6mdulK3DK34tIcA2gQw6xr7ToHiyxF7c",
+        "subject_username": "anon3"
     }
 }

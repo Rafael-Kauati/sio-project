@@ -58,7 +58,7 @@ class Subject(db.Model):
     username = db.Column(db.String(128), unique=True, nullable=False)
     full_name = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(128), nullable=False)
-    public_key = db.Column(db.String(512), nullable=False)
+    public_key = db.Column(db.String(1200), nullable=False)
 
 class Role(db.Model):
     __tablename__ = 'roles'

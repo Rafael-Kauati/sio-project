@@ -40,27 +40,48 @@ def list_organizations():
 
 
 def create_organization(data):
-    # Formatar o corpo da requisição conforme o exemplo dado
-    with open(data['public_key_file'], 'r') as key_file:
-        public_key = key_file.read()
+    try:
+        # Carregar o arquivo de chave pública
+        with open(data['public_key_file'], 'r') as key_file:
+            public_key_data = json.load(key_file)
 
-    payload = {
-        "name": data['name'],
-        "subject": {
-            "username": data['username'],
-            "full_name": data['full_name'],
-            "email": data['email'],
-            "public_key": public_key
+        # Obter a chave pública do conteúdo carregado
+        public_key = public_key_data.get("public_key")
+        if not public_key:
+            raise ValueError("Public key not found in the provided file.")
+
+        # Montar o payload da requisição
+        payload = {
+            "name": data['name'],
+            "subject": {
+                "username": data['username'],
+                "full_name": data['full_name'],
+                "email": data['email'],
+                "public_key": public_key
+            }
         }
-    }
 
-    url = f"http://{state['REP_ADDRESS']}/organizations"
-    response = requests.post(url, json=payload)
-    if response.status_code == 201:
-        logger.info("Organization created successfully.")
-        return 0
-    else:
-        logger.error(f"Failed to create organization: {response.status_code}")
+        # Enviar a requisição para criar a organização
+        url = f"http://{state['REP_ADDRESS']}/organizations"
+        response = requests.post(url, json=payload)
+
+        # Verificar o status da resposta
+        if response.status_code == 201:
+            logger.info("Organization created successfully.")
+            return {"status": "success", "message": "Organization created successfully."}
+        else:
+            logger.error(f"Failed to create organization: {response.status_code} - {response.text}")
+            return {"status": "error", "message": response.text}
+
+    except FileNotFoundError:
+        logger.error("Public key file not found.")
+        return {"status": "error", "message": "Public key file not found."}
+    except ValueError as ve:
+        logger.error(f"Error processing public key: {str(ve)}")
+        return {"status": "error", "message": str(ve)}
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 
 def create_session(data, session_file):
@@ -109,13 +130,17 @@ def add_subject(data, session_file):
     with open(data['credentials_file'], 'r') as cred_file:
         credentials = json.load(cred_file)
 
+        # Obter a chave pública do conteúdo carregado
+        public_key = credentials.get("public_key")
+        if not public_key:
+            raise ValueError("Public key not found in the provided file.")
 
     payload = {
         "username": data['username'],
         "name": data['name'],
         "email": data['email'],
         "session_key": session_key,
-        "public_key" : data['key'],
+        "public_key" : public_key,
         "credentials": credentials
     }
     response = requests.post(url, json=payload)
@@ -391,7 +416,7 @@ def gen_subject_file(password, credentials_file):
     # Generate RSA private/public key pair
     private_key = rsa.generate_private_key(
         public_exponent=65537,
-        key_size=2048,
+        key_size=1048,
         backend=default_backend()
     )
     public_key = private_key.public_key()
@@ -567,7 +592,7 @@ def parse_args(state):
         command_parser.add_argument("username", help="Username for the organization admin")
         command_parser.add_argument("name", help="Name of the organization")
         command_parser.add_argument("email", help="Email of the organization")
-        command_parser.add_argument("key", help="key of the subject")
+        #command_parser.add_argument("key", help="key of the subject")
         command_parser.add_argument("credentials_file", help="Path to the credentials file")
 
     if args.command == "rep_get_file":
@@ -646,7 +671,7 @@ if args.command == "rep_add_subject":
         "username": command_args.username,
         "name": command_args.name,
         "email": command_args.email,
-        "key": command_args.key,
+        #"key": command_args.key,
         "credentials_file": command_args.credentials_file
     }
     print(add_subject(data, command_args.session_file))
