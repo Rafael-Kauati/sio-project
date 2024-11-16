@@ -137,7 +137,10 @@ def add_document(data, file_path):
     else:
         logger.error(f"Failed to add document: {response.status_code}")
 
+
 def get_document_metadata(session_file, document_name):
+    import os
+
     # URL do endpoint para obter metadados do documento
     url = f"http://{state['REP_ADDRESS']}/document/metadata"
 
@@ -153,8 +156,31 @@ def get_document_metadata(session_file, document_name):
     # Enviar requisição GET para o endpoint de metadados do documento
     response = requests.get(url, headers=headers, params=params)
 
-    # Retornar a resposta
-    return response.json()
+    # Checar se a resposta foi bem-sucedida
+    if response.status_code == 200:
+        response_data = response.json()
+
+        # Acessar os metadados corretos
+        metadata = response_data.get("metadata", {})
+
+        # Extrair `file_key` e `encryption_vars`
+        encryption_data = {
+            "file_key": metadata.get("file_key"),
+            "encryption_vars": metadata.get("encryption_vars"),
+        }
+
+        # Nome do arquivo de saída
+        output_file = f"{document_name}_encryption_data.json"
+
+        # Salvar os dados de criptografia no arquivo JSON
+        with open(output_file, 'w') as file:
+            json.dump(encryption_data, file, indent=4)
+
+        print(f"Encryption data salvo em: {output_file}")
+        return metadata
+    else:
+        print(f"Erro ao obter metadados: {response.status_code} - {response.text}")
+        response.raise_for_status()
 
 
 import requests
