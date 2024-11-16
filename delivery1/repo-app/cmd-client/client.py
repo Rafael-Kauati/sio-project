@@ -220,50 +220,75 @@ def download_document(file_handle, file=None):
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import json
 
-def decrypt_file(encrypted_file, encryption_metadata_file ):
+def decrypt_file(encrypted_file, encryption_metadata_file):
     """
     Descriptografa um arquivo criptografado usando os metadados fornecidos.
 
     :param encrypted_file: Caminho para o arquivo criptografado.
     :param encryption_metadata_file: Caminho para o arquivo JSON contendo os metadados de criptografia.
-    :param output_file: Caminho opcional para salvar o conteúdo descriptografado.
-    :return: O conteúdo descriptografado (se output_file não for fornecido).
+    :return: O caminho do arquivo descriptografado.
     """
     try:
         # Ler o arquivo de metadados
         with open(encryption_metadata_file, 'r') as meta_file:
             metadata = json.load(meta_file)
 
-        # Obter a chave e o nonce do arquivo de metadados
+        # Obter a chave e os parâmetros do algoritmo dos metadados
         file_key = bytes.fromhex(metadata.get("file_key"))
         encryption_vars = json.loads(metadata.get("encryption_vars"))
-        if encryption_vars.get("alg") == "ChaCha20":
-            logger.info(f"Decrypting {encrypted_file} with {encryption_vars.get("alg")}")
-            nonce = bytes.fromhex(encryption_vars.get("nonce"))
+        alg = encryption_vars.get("alg")
 
-            if not file_key or not nonce:
-                raise ValueError("Metadados incompletos: 'file_key' ou 'nonce' ausentes.")
-                # Configurar o decodificador ChaCha20
+        if not file_key or not alg:
+            raise ValueError("Metadados incompletos: 'file_key' ou 'alg' ausentes.")
+
+        # Configurar o algoritmo de descriptografia com base em `alg`
+        if alg == "ChaCha20":
+            nonce = bytes.fromhex(encryption_vars.get("nonce"))
+            if not nonce:
+                raise ValueError("Metadados incompletos: 'nonce' ausente para ChaCha20.")
             algorithm = algorithms.ChaCha20(file_key, nonce)
             cipher = Cipher(algorithm, mode=None)
-            decryptor = cipher.decryptor()
-            # Ler o conteúdo do arquivo criptografado
-            with open(encrypted_file, 'rb') as enc_file:
-                encrypted_data = enc_file.read()
 
+        elif alg == "AES-GCM":
+            nonce = bytes.fromhex(encryption_vars.get("nonce"))
+            tag = bytes.fromhex(encryption_vars.get("tag"))
+            if not nonce or not tag:
+                raise ValueError("Metadados incompletos: 'nonce' ou 'tag' ausentes para AES-GCM.")
+            algorithm = algorithms.AES(file_key)
+            cipher = Cipher(algorithm, mode=modes.GCM(nonce, tag))
 
+        elif alg == "AES-CBC":
+            iv = bytes.fromhex(encryption_vars.get("iv"))
+            if not iv:
+                raise ValueError("Metadados incompletos: 'iv' ausente para AES-CBC.")
+            algorithm = algorithms.AES(file_key)
+            cipher = Cipher(algorithm, mode=modes.CBC(iv))
 
-            # Descriptografar os dados
-            decrypted_data = decryptor.update(encrypted_data)
-            output_file = f"{encrypted_file}_decrypted"
-            # Salvar ou retornar o conteúdo descriptografado
-            with open(output_file, 'wb') as out_file:
-                out_file.write(decrypted_data)
-            print(f"Arquivo descriptografado salvo em: {output_file}")
+        else:
+            raise ValueError(f"Algoritmo de criptografia '{alg}' não suportado.")
+
+        # Criar o decodificador
+        decryptor = cipher.decryptor()
+
+        # Ler o conteúdo do arquivo criptografado
+        with open(encrypted_file, 'rb') as enc_file:
+            encrypted_data = enc_file.read()
+
+        # Descriptografar os dados
+        decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
+        print(decrypted_data.decode("utf-8"))
+        # Definir o caminho de saída para o arquivo descriptografado
+        output_file = f"{os.path.splitext(encrypted_file)[0]}_decrypted"
+        with open(output_file, 'wb') as out_file:
+            out_file.write(decrypted_data)
+
+        print(f"Arquivo descriptografado salvo em: {output_file}")
+        return output_file
 
     except Exception as e:
         print(f"Erro durante a descriptografia: {e}")
         raise
+
 
 
 
