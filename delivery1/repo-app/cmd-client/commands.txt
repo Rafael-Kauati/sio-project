@@ -19,11 +19,14 @@ python3 client.py rep_add_doc "session_file" "test" "./test"
 To list files from an organization of the session key :
 python3 client.py rep_list_docs "session_file"
 
-To get document metadata (returned as json) :
+To get document metadata (the encryption metadata is stored in local file to be used in the decryption command) :
 python3 client.py rep_get_doc_metadata "session_file" "test"
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
 python3 client.py rep_get_file 915fdf9d01e650ee0df04ce6a951e5654e65626d3c3d36d9db85224fa1ab12cd -f  "output"
+
+To decrypt a encryted document (the document must be in the local machine) :
+python3 client.py rep_decrypt_file "output" "test_encryption_data.json"
 
 To delete document :
 python3 client.py rep_delete_doc "session_file" "test"
