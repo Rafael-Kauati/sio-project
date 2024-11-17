@@ -561,26 +561,20 @@ def load_state():
 def parse_env(state):
     if 'REP_ADDRESS' in os.environ:
         state['REP_ADDRESS'] = os.getenv('REP_ADDRESS')
-        logger.debug('Setting REP_ADDRESS from Environment to: ' + state['REP_ADDRESS'])
-    else:
-        state['REP_ADDRESS'] = "localhost:5000"
-        logger.debug('Setting REP_ADDRESS as : ' + state['REP_ADDRESS'])
+        logger.info('Setting REP_ADDRESS from Environment to: ' + state['REP_ADDRESS'])
+        print('Setting REP_ADDRESS from Environment to: ' + state['REP_ADDRESS'])
+
 
 
     if 'REP_PUB_KEY' in os.environ:
         rep_pub_key = os.getenv('REP_PUB_KEY')
-        logger.debug('Loading REP_PUB_KEY fron: ' + state['REP_PUB_KEY'])
+        logger.info('Loading REP_PUB_KEY from env variable: ' + state['REP_PUB_KEY'])
+        print('Loading REP_PUB_KEY from env variable: ' + state['REP_PUB_KEY'])
         if os.path.exists(rep_pub_key):
             with open(rep_pub_key, 'r') as f:
                 state['REP_PUB_KEY'] = f.read()
                 logger.debug('Loaded REP_PUB_KEY from Environment')
-    else:
-        state['REP_PUB_KEY'] = "../public_key.pem"
-        logger.debug('Loading REP_PUB_KEY fron: ' + state['REP_PUB_KEY'])
-        if os.path.exists(state['REP_PUB_KEY']):
-            with open(state['REP_PUB_KEY'], 'r') as f:
-                state['REP_PUB_KEY'] = f.read()
-                logger.debug('Loaded REP_PUB_KEY from file')
+
     return state
 
 
@@ -602,6 +596,19 @@ def parse_args(state):
 
     # Parse os argumentos até o comando (ignora os argumentos específicos do comando)
     args, unknown_args = parser.parse_known_args()
+
+    if args.key:
+        if not os.path.exists(args.key[0]) or not os.path.isfile(args.key[0]):
+            logger.error(f'Key file not found or invalid: {args.key[0]}')
+            sys.exit(-1)
+
+        with open(args.key[0], 'r') as f:
+            state['REP_PUB_KEY'] = f.read()
+            logger.info('Overriding REP_PUB_KEY from command line')
+
+    if args.repo:
+        state['REP_ADDRESS'] = args.repo[0]
+        logger.info('Overriding REP_ADDRESS from command line')
 
     # Configura o nível de verbosidade
     if args.verbose:

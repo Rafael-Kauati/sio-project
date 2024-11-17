@@ -1,8 +1,8 @@
 To create a new org :
-python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"
+python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  --repo "localhost:5000"
 
 To create a new session in that org :
-python3 client.py rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file"
+python3 client.py rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file"  --key "../public_key.pem"
 
 To create a key pair for a subject:
 python3 client.py rep_subject_credentials "password" "credentials"
