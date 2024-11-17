@@ -27,15 +27,45 @@ from flask import request
 import base64
 
 
-def check_session(session_key_from_url):
-    # Decodifica a chave de sessão que vem da URL
-    try:
-        session_key_decoded = base64.b64decode(session_key_from_url)
-    except Exception as e:
-        return None  # Caso a chave não seja válida em base64, retorna None
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+import base64
 
-    # Busca a sessão no banco usando a chave de sessão decodificada
-    session = Session.query.filter_by(session_key=session_key_from_url).first()
+def decrypt_session_key(encrypted_session_key, private_key_path="private_key.pem"):
+    with open(private_key_path, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(), password=None
+        )
+
+    try:
+        decrypted_key = private_key.decrypt(
+            encrypted_session_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+    except Exception as e:
+        raise ValueError(f"Erro ao descriptografar a chave de sessão: {e}")
+
+    return decrypted_key.decode()
+
+def check_session(encrypted_session_key_from_url):
+    """
+    Verifica a validade de uma sessão a partir de uma chave de sessão criptografada.
+    """
+    # Descriptografa a chave de sessão
+    try:
+        encrypted_session_key_bytes = base64.b64decode(encrypted_session_key_from_url)
+        session_key = decrypt_session_key(encrypted_session_key_bytes)
+    except Exception as e:
+        print(f"Erro ao descriptografar a chave de sessão: {e}")
+        return None  # Caso a descriptografia falhe, retorna None
+
+    # Busca a sessão no banco usando a chave de sessão descriptografada
+    session = Session.query.filter_by(session_key=session_key).first()
 
     if not session:
         return None  # Se não encontrar a sessão, retorna None
@@ -44,11 +74,12 @@ def check_session(session_key_from_url):
     return session
 
 
+
 class DocumentController:
     @staticmethod
     def get_documents_by_session_key(session_key, username=None, date_str=None, filter_type='all'):
         # Encontre a sessão com base na session_key
-        session = Session.query.filter_by(session_key=session_key).first()
+        session = check_session(session_key)
         if not session:
             return {"error": "Session not found"}, 404
 

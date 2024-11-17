@@ -1,17 +1,17 @@
+import base64
 import hashlib
 import os
 import sys
 import argparse
 import logging
 import json
-import requests
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-import json
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 logging.basicConfig(format='%(levelname)s\t- %(message)s')
 logger = logging.getLogger()
@@ -84,31 +84,65 @@ def create_organization(data):
         return {"status": "error", "message": str(e)}
 
 
+def encrypt_session_key(session_key, public_key_path):
+    with open(public_key_path, "rb") as key_file:
+        public_key = serialization.load_pem_public_key(key_file.read())
+
+    encrypted_key = public_key.encrypt(
+        session_key.encode(),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return base64.b64encode(encrypted_key).decode()
+
+
+
 def create_session(data, session_file):
-    # Formata a carga da requisição conforme o formato especificado
+    """
+    Cria uma sessão e criptografa a chave de sessão com uma chave pública RSA.
+    """
+    import json
+    import requests
+
+    # Lê as credenciais do arquivo especificado
     with open(data['credentials_file'], 'r') as cred_file:
         credentials = json.load(cred_file)
 
     payload = {
         "username": data['username'],
         "organization_name": data['organization'],
-        #"identifier": "orgsession",
-       #"session_key": credentials.get("public_key"),
         "password": data['password'],
         "credentials": credentials
     }
 
+    # Envia o payload para criar uma sessão
     url = f"http://{state['REP_ADDRESS']}/sessions"
     response = requests.post(url, json=payload)
 
     if response.status_code == 201:
-        # Salva a resposta no arquivo de sessão
+        # Obtém a resposta e criptografa a session_key
+        response_data = response.json()
+        session_key = response_data["session_context"]["session_key"]
+
+        # Usa o caminho para a chave pública
+        public_key_path = "../public_key.pem"
+        encrypted_session_key = encrypt_session_key(session_key, public_key_path)
+
+        # Substitui a chave de sessão pela versão criptografada
+        response_data["session_context"]["session_key"] = encrypted_session_key
+
+        # Salva a resposta atualizada no arquivo de sessão
         with open(session_file, 'w') as file:
-            json.dump(response.json(), file, indent=4)
+            json.dump(response_data, file, indent=4)
         return 0
     else:
-        #logger.error(f"Failed to create session: {response.status_code}")
+        # Caso falhe na criação da sessão
+        print(f"Failed to create session: {response.status_code}")
         return 1
+
 
 def download_file(filename):
     url = f"http://{state['REP_ADDRESS']}/download/{filename}"
@@ -120,8 +154,10 @@ def download_file(filename):
     else:
         logger.error(f"Failed to download file '{filename}': {response.status_code}")
 
+
 def add_subject(data, session_file):
     url = f"http://{state['REP_ADDRESS']}/add_subject"
+
     # Carrega o arquivo de sessão para obter a session_key
     with open(session_file, 'r') as session_file:
         session_data = json.load(session_file)
@@ -135,24 +171,26 @@ def add_subject(data, session_file):
         if not public_key:
             raise ValueError("Public key not found in the provided file.")
 
+    # Payload agora não inclui mais a session_key, pois ela será enviada no cabeçalho
     payload = {
         "username": data['username'],
         "name": data['name'],
         "email": data['email'],
-        "session_key": session_key,
-        "public_key" : public_key,
+        "public_key": public_key,
         "credentials": credentials
     }
-    response = requests.post(url, json=payload)
+
+    # Define os cabeçalhos para incluir a session_key
+    headers = {
+        "X-Session-Key": session_key
+    }
+
+    # Faz a requisição POST com os cabeçalhos e o payload
+    response = requests.post(url, json=payload, headers=headers)
     return response
 
 
-
-
-
 def get_document_metadata(session_file, document_name):
-    import os
-
     # URL do endpoint para obter metadados do documento
     url = f"http://{state['REP_ADDRESS']}/document/metadata"
 
@@ -162,7 +200,7 @@ def get_document_metadata(session_file, document_name):
         session_key = session_data["session_context"]["session_key"]
 
     # Definir cabeçalhos e parâmetros
-    headers = {'session_key': session_key}
+    headers = {'session_key': session_key}  # Envia session_key no cabeçalho
     params = {'document_name': document_name}
 
     # Enviar requisição GET para o endpoint de metadados do documento
@@ -328,6 +366,8 @@ def encrypt_file_with_chacha20(file_data):
 
 
 def upload_document(data):
+    url = f"http://{state['REP_ADDRESS']}/add_document"
+
     # Carrega o arquivo de sessão para obter a session_key
     with open(data['session_file'], 'r') as session_file:
         session_data = json.load(session_file)
@@ -344,20 +384,25 @@ def upload_document(data):
     # Cria o dicionário para 'encryption_vars'
     encryption_vars = {
         'nonce': nonce.hex(),
-        'alg' : "ChaCha20"
+        'alg': "ChaCha20"
     }
 
-    # Faz a requisição para enviar o documento criptografado
+    # Define os cabeçalhos para enviar a session_key
+    headers = {
+        "X-Session-Key": session_key
+    }
+
+    # Faz a requisição POST para enviar o documento criptografado
     response = requests.post(
-        f"http://{state['REP_ADDRESS']}/add_document",
+        url,
         files={'file': encrypted_file_data},
         data={
-            'session_key': session_key,  # Utiliza a session_key extraída
             'file_name': data['document_name'],  # Nome do documento
             'file_handle': file_handle,
             'file_encryption_key': chacha_key.hex(),
             'encryption_vars': json.dumps(encryption_vars)  # Converte para JSON string
-        }
+        },
+        headers=headers  # Inclui os cabeçalhos com a session_key
     )
 
     return response
@@ -383,6 +428,20 @@ def get_documents(data):
             print("Formato de data incorreto. Use <filter_type> <date> (por exemplo, 'nt 2023-01-01').")
             return
 
+    # Configura a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}/sessions/documents"
+
+    # Define os cabeçalhos para incluir a session_key
+    headers = {
+        "X-Session-Key": session_key
+    }
+
+    # Faz a requisição GET com os parâmetros e os cabeçalhos
+    response = requests.get(url, headers=headers, params=params)
+
+    # Retorna a resposta em formato JSON
+    return response.json()
+
     # Faz a requisição GET para o endpoint usando session_key
     url = f"http://{state['REP_ADDRESS']}/sessions/{session_key}/documents"
     response = requests.get(url, params=params)
@@ -395,21 +454,40 @@ def get_documents(data):
         return None
 
 def delete_document(session_file, document_name):
+    # Carrega o arquivo de sessão para obter o session_key
     with open(session_file, 'r') as session_file:
         session_data = json.load(session_file)
         session_key = session_data["session_context"]["session_key"]
 
-    url = f"http://{state['REP_ADDRESS']}/delete_document/{session_key}/{document_name}"
-    response = requests.delete(url)
+    # URL do endpoint para deletar o documento
+    url = f"http://{state['REP_ADDRESS']}/delete_document/{document_name}"
+
+    # Definir cabeçalhos com o session_key
+    headers = {'session_key': session_key}  # Envia session_key no cabeçalho
+
+    # Enviar requisição DELETE para o endpoint de deletar o documento
+    response = requests.delete(url, headers=headers)
+
     return response.json()
 
 def list_subjects(session_file, username=None):
-    with open(session_file, 'r') as session_file:
-        session_data = json.load(session_file)
+    # Carregar os dados do arquivo da sessão
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
         session_key = session_data["session_context"]["session_key"]
 
-    url = f"http://{state['REP_ADDRESS']}/sessions/{session_key}/subjects"
-    response = requests.get(url)
+    # Definir a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}/sessions/subjects"
+
+    # Definir os cabeçalhos para incluir a session_key
+    headers = {
+        "X-Session-Key": session_key
+    }
+
+    # Enviar a requisição GET com a session_key no cabeçalho
+    response = requests.get(url, headers=headers)
+
+    # Retornar a resposta em formato JSON
     return response.json()
 
 def gen_subject_file(password, credentials_file):

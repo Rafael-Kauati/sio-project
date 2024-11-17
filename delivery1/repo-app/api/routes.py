@@ -94,9 +94,18 @@ def list_session_roles_route(session_key):
     return SessionController.list_session_roles(session_key)
 
 
-@main_bp.route('/sessions/<string:session_key>/subjects', methods=['GET'])
-def get_subjects_by_session_key_route(session_key):
+@main_bp.route('/sessions/subjects', methods=['GET'])
+def get_subjects_by_session_key_route():
+    # Obtém a session_key do cabeçalho da requisição
+    session_key = request.headers.get('X-Session-Key')
+
+    if not session_key:
+        # Retorna um erro se o cabeçalho não estiver presente
+        return jsonify({"error": "Missing 'X-Session-Key' header"}), 400
+
     logger.info(f"Request to get subjects by session key: {session_key}")
+
+    # Chama o controlador para processar a lógica
     return SessionController.get_subjects_by_session_key(session_key)
 
 
@@ -106,14 +115,19 @@ def get_roles_by_session_key_route(session_key):
     return SessionController.get_roles_by_session_key(session_key)
 
 
-@main_bp.route('/sessions/<string:session_key>/documents', methods=['GET'])
-def get_documents_by_session_key_route(session_key):
+@main_bp.route('/sessions/documents', methods=['GET'])
+def get_documents_by_session_key_route():
+    # Obtém a session_key dos cabeçalhos
+    session_key = request.headers.get('X-Session-Key')
+
+    # Obtém os parâmetros da URL
     username = request.args.get('username')
     date_str = request.args.get('date')
     filter_type = request.args.get('filter_type', 'all')
 
     logger.info(
         f"Request to get documents by session key: {session_key} with filters - username: {username}, date: {date_str}, filter_type: {filter_type}")
+
     documents = DocumentController.get_documents_by_session_key(session_key, username, date_str, filter_type)
     return jsonify(documents), 200
 
@@ -124,7 +138,8 @@ def get_documents_by_session_key_route(session_key):
 @main_bp.route('/add_subject', methods=['POST'])
 def add_subject_route():
     data = request.json
-    session_key = data.get("session_key")
+    # Obtém a session_key dos cabeçalhos
+    session_key = request.headers.get("X-Session-Key")
     username = data.get("username")
     name = data.get("name")
     email = data.get("email")
@@ -140,10 +155,11 @@ def add_subject_route():
     return jsonify(result), 201 if "id" in result else 400
 
 
+
 @main_bp.route('/add_document', methods=['POST'])
 def add_document_route():
     # Recebe os dados da requisição
-    session_key = request.form.get("session_key")
+    session_key = request.headers.get("X-Session-Key")  # Obtém session_key do cabeçalho
     file_name = request.form.get("file_name")
     file = request.files.get("file")
     file_encryption_key = request.form['file_encryption_key']
@@ -177,14 +193,20 @@ def add_document_route():
 
 
 
+
 @main_bp.route('/document/metadata', methods=['GET'])
 def get_document_metadata_route():
-    session_key = request.headers.get('session_key')
-    document_name = request.args.get('document_name')
+    # Recebe a session_key do cabeçalho HTTP
+    session_key = request.headers.get('session_key')  # Obtém session_key dos cabeçalhos
+    document_name = request.args.get('document_name')  # Obtém o document_name dos parâmetros de consulta
 
     if not document_name:
         logger.warning("Document name parameter missing for metadata request.")
         return jsonify({"error": "O parâmetro 'document_name' é obrigatório"}), 400
+
+    if not session_key:
+        logger.warning("Session key missing for metadata request.")
+        return jsonify({"error": "O cabeçalho 'session_key' é obrigatório"}), 400
 
     logger.info(f"Requesting document metadata for session key: {session_key} and document name: {document_name}")
     result = SessionController.get_document_metadata(session_key, document_name)
@@ -194,8 +216,17 @@ def get_document_metadata_route():
 
 
 
-@main_bp.route('/delete_document/<session_key>/<string:document_name>', methods=['DELETE'])
-def delete_document_route(session_key, document_name):
+
+@main_bp.route('/delete_document/<string:document_name>', methods=['DELETE'])
+def delete_document_route(document_name):
+    # Recebe a session_key do cabeçalho HTTP
+    session_key = request.headers.get('session_key')
+
+    if not session_key:
+        logger.warning("Session key missing for delete request.")
+        return jsonify({"error": "O cabeçalho 'session_key' é obrigatório"}), 400
+
     logger.info(f"Request to delete document: {document_name} in session: {session_key}")
     result = SessionController.delete_document_from_organization(session_key, document_name)
     return result
+
