@@ -1,6 +1,6 @@
 # How to install and prepare the env :
 
-## Docker, used to have a postgresql database to allow data persistence in the repository:
+## 1° - Docker, used to have a postgresql database to allow data persistence in the repository:
 
 ### Run the docker container at the delivery1/repo-app/:
 
@@ -9,7 +9,7 @@ docker-compose build
 docker-compose up
 ```
 
-## The flask app, but before starting it, must install the virtual env:
+## 2° - The flask app, but before starting it, must install the virtual env:
 
 ### In other terminal, Create and install all the dependencies of the virtual env with the venv-and-install.sh file at the delivery1/repo-app/:
 
@@ -25,7 +25,7 @@ docker-compose up
 
 # How to test the client and the repository:
 
-## In other terminal, travel to delivery1/repo-app/cmd-client, and enter the virtual env there: 
+## 3° - In other terminal, travel to delivery1/repo-app/cmd-client, and enter the virtual env there: 
 ```bash
 source venv/bin/activate
 ```
