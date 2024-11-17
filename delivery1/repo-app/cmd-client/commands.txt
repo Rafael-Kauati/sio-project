@@ -1,0 +1,36 @@
+To create a new org :
+python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  --repo "localhost:5000"
+
+To create a new session in that org :
+python3 client.py rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file"  --key "../public_key.pem"
+
+To create a key pair for a subject:
+python3 client.py rep_subject_credentials "password" "credentials"
+
+To create a new subject :
+python3 client.py rep_subject_credentials "password2" "credentials"
+python3 client.py rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
+python3 client.py rep_create_session "Org4"  "gabs"  "password"  "key"  "credentials" "session_file"
+
+To list the subjects of the organization :
+python3 client.py rep_list_subjects  "session_file"
+
+
+To upload a doc with the session(note: this command assumes that the document is not encrypted, so it encrypts it and sends the encrypted key and the file handle within the request) :
+python3 client.py rep_add_doc "session_file" "test" "./test"
+
+
+To list files from an organization of the session key :
+python3 client.py rep_list_docs "session_file"
+
+To get document metadata (the encryption metadata is stored in local file to be used in the decryption command) :
+python3 client.py rep_get_doc_metadata "session_file" "test"
+
+To download the file (change the hash value of to the correct file handle printed from the previous command) :
+python3 client.py rep_get_file d8c3b75e09249b626be4fb9ff7de83867e3fcd6f1afa664c5131d81055ac8867 -f  "output"
+
+To decrypt an encrypted document (the document must be in the local machine), the decrypted data is also stored at a {encrypted_file}_decrypted file (automatically) :
+python3 client.py rep_decrypt_file "output" "test_encryption_data.json"
+
+To delete document :
+python3 client.py rep_delete_doc "session_file" "test"

@@ -4,3 +4,8 @@ SQLAlchemy==1.4.36
 Werkzeug==2.0.3
 python-dotenv==0.19.2
 psycopg2-binary
+requests
+Flask-Migrate
+flasgger
+flask-restx
+cryptography
