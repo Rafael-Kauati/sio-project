@@ -6,7 +6,7 @@ import string
 
 from cryptography.exceptions import InvalidKey
 from flask import jsonify, abort
-from api.models import db, Document, Organization, Session, Subject, Role, Nonce
+from api.models import db, Document, Organization, Session, Subject, Role, Nonce, subject_organization
 from werkzeug.utils import secure_filename
 from .utils import *
 from . import app  
@@ -173,15 +173,18 @@ class OrganizationController:
         org_name = data.get("name")
         subject_data = data.get("subject")
         nonce = request.headers.get("X-Nonce")
+
+        # Validação do nonce
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
         else:
-            # Se o nonce não existe, insira-o na tabela
+            # Salva o nonce na tabela
             new_nonce = Nonce(nonce=nonce)
             db.session.add(new_nonce)
             db.session.commit()
 
+        # Verificar se os dados necessários foram fornecidos
         if not org_name or not subject_data:
             return jsonify({'error': 'Organization name and subject data are required'}), 400
 
@@ -189,12 +192,12 @@ class OrganizationController:
         username = subject_data.get("username")
         full_name = subject_data.get("full_name")
         email = subject_data.get("email")
-        #public_key = subject_data.get("public_key")
+        #public_key = subject_data.get("public_key")  # Certifique-se de que este campo é obrigatório
 
-        if not username or not full_name or not email:
+        if not username or not full_name or not email :
             return jsonify({'error': 'All subject fields are required'}), 400
 
-        '''# Validação da chave pública
+        '''# Validação da chave pública (opcional, se necessário)
         try:
             # Carregar a chave pública para verificar se é válida
             public_key_obj = serialization.load_pem_public_key(
@@ -204,23 +207,24 @@ class OrganizationController:
         except (ValueError, InvalidKey) as e:
             return jsonify({'error': 'Invalid public key format'}), 400'''
 
-        # Criar organização
+        # Criar instâncias
         organization = Organization(name=org_name)
-
-        # Criar sujeito
         subject = Subject(
             username=username,
             full_name=full_name,
             email=email,
-            public_key=public_key
+            #public_key=public_key
         )
 
-        # Salvar ambas as entidades no banco de dados
+        # Adicionar sujeito à organização
+        organization.subjects.append(subject)
+
+        # Salvar entidades no banco de dados
         try:
             db.session.add(organization)
-            db.session.add(subject)
             db.session.commit()
-            return jsonify({'message': 'Organization and subject created successfully'}), 201
+            return jsonify(
+                {'message': 'Organization and subject created successfully, and relationship established'}), 201
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': str(e)}), 500
@@ -440,11 +444,12 @@ class SessionController:
         return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
 
     @staticmethod
-    def add_subject_to_organization(session_key, nonce,username, name, email, public_key):
+    def add_subject_to_organization(session_key, nonce, username, name, email):
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
 
+        # Validação do nonce
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
@@ -454,31 +459,40 @@ class SessionController:
             db.session.add(new_nonce)
             db.session.commit()
 
+        # Verificar organização associada à sessão
         organization = session.organization
         if not organization:
-            return {"error": "Organização associada à sessão não encontrada."}
-
-        # Verifique se o username já existe na organização
-        existing_subject = Subject.query.filter_by(username=username).first()
+            return {"error": "Organização associada à sessão não encontrada."}, 404
+        print(f"Username: {username}, Name: {name}, Email: {email}")
+        # Verificar se o username já existe na organização
+        existing_subject = db.session.query(Subject).join(subject_organization).filter(
+            subject_organization.c.organization_id == organization.id,
+            Subject.username == username
+        ).first()
         if existing_subject:
-            return {"error": "Um usuário com esse username já existe."}
+            print(f"Existing subject: {existing_subject}")
+            return {"error": "Um usuário com esse username já existe nesta organização."}, 400
 
-        # Crie um novo Subject e o associe à organização
+        # Criar novo Subject e associá-lo à organização
         new_subject = Subject(
             username=username,
             full_name=name,
             email=email,
-            public_key=public_key
+            #public_key=public_key
         )
 
-        # Adicione e confirme a transação
         try:
+            # Associar o novo Subject à organização usando a tabela de relacionamento
+            organization.subjects.append(new_subject)
+
+            # Persistir no banco de dados
             db.session.add(new_subject)
             db.session.commit()
-            return {"id": new_subject.id, "message": "Sujeito adicionado com sucesso."}
+
+            return {"id": new_subject.id, "message": "Sujeito adicionado com sucesso."}, 201
         except Exception as e:
             db.session.rollback()
-            return {"error": f"Ocorreu um erro ao adicionar o sujeito: {str(e)}"}
+            return {"error": f"Ocorreu um erro ao adicionar o sujeito: {str(e)}"}, 500
 
     @staticmethod
     def get_roles_by_session_key(session_key):
@@ -504,30 +518,30 @@ class SessionController:
         """
         Obtém os subjects associados à organização da sessão após validar o nonce.
         """
+        # Valida a sessão
         session = check_session(session_key)
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
-        # Verifica se o nonce já foi usado para a sessão
+        # Verifica se o nonce já foi usado
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
         else:
-            # Se o nonce não existe, insira-o na tabela
+            # Insere o nonce na tabela
             new_nonce = Nonce(nonce=nonce)
             db.session.add(new_nonce)
             db.session.commit()
-
-
 
         # Obtém a organização associada à sessão
         organization = session.organization
         if not organization:
             return jsonify({"error": "Organização não encontrada"}), 404
 
-        # Obter todos os subjects associados à mesma organização através de suas sessões
-        subjects = Subject.query.join(Session).filter(Session.organization_id == organization.id).all()
+        # Obtém todos os subjects associados à organização pela tabela de relacionamento
+        subjects = organization.subjects
 
+        # Retorna os subjects associados
         return jsonify([{
             'id': subject.id,
             'username': subject.username,

@@ -1,4 +1,4 @@
 {
-    "file_key": "045b000e66781007adea8adb3c7613f19636a39c1b4ec47c331722e2f0524344",
-    "encryption_vars": "{\"nonce\": \"7be74814954791e6186fddffe4b113af\", \"alg\": \"ChaCha20\"}"
+    "file_key": "b6fa2bdd4937b178c25deab45a5921d9b3bbed73df0999ad480330658ab408ff",
+    "encryption_vars": "{\"nonce\": \"81b6aa55c856ca315973e218a2a060dc\", \"alg\": \"ChaCha20\"}"
 }

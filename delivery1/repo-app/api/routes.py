@@ -148,15 +148,15 @@ def add_subject_route():
     username = data.get("username")
     name = data.get("name")
     email = data.get("email")
-    public_key = data.get("public_key")
+    #public_key = data.get("public_key")
 
-    if not all([session_key, username, name, email, public_key]):
+    if not all([session_key, username, name, email]):
         logger.warning("Missing required fields for adding subject.")
         return jsonify(
             {"error": "Todos os campos são obrigatórios: session_key, username, name, email, public_key"}), 400
 
     logger.info(f"Adding subject to organization with session key: {session_key}")
-    result = SessionController.add_subject_to_organization(session_key, nonce,username, name, email, public_key)
+    result = SessionController.add_subject_to_organization(session_key, nonce,username, name, email)
     return jsonify(result), 201 if "id" in result else 400
 
 

@@ -32,11 +32,33 @@ class Document(db.Model):
         }
 
 
+subject_organization = db.Table(
+    'subject_organization',
+    db.Column('subject_id', db.Integer, db.ForeignKey('subject.id'), primary_key=True),
+    db.Column('organization_id', db.Integer, db.ForeignKey('organization.id'), primary_key=True)
+)
+
+class Subject(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(128), unique=True, nullable=False)
+    full_name = db.Column(db.String(128), nullable=False)
+    email = db.Column(db.String(128), nullable=False)
+    public_key = db.Column(db.String(1200), nullable=True)
+
+    # Relação com Organization via tabela associativa
+    organizations = db.relationship('Organization', secondary=subject_organization, back_populates='subjects')
+
+
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
     documents = db.relationship('Document', backref='organization')
     roles = db.relationship('Role', back_populates='organization', cascade="all, delete-orphan")
+
+    # Relação com Subject via tabela associativa
+    subjects = db.relationship('Subject', secondary=subject_organization, back_populates='organizations')
+
+
 
 class Session(db.Model):
     __tablename__ = "session"
@@ -58,15 +80,6 @@ class Nonce(db.Model):
     nonce = db.Column(db.String(128), unique=True, nullable=False)  # Nonce deve ser único
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-
-
-
-class Subject(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(128), unique=True, nullable=False)
-    full_name = db.Column(db.String(128), nullable=False)
-    email = db.Column(db.String(128), nullable=False)
-    public_key = db.Column(db.String(1200), nullable=False)
 
 class Role(db.Model):
     __tablename__ = 'roles'
