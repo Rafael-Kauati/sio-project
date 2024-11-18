@@ -189,12 +189,12 @@ class OrganizationController:
         username = subject_data.get("username")
         full_name = subject_data.get("full_name")
         email = subject_data.get("email")
-        public_key = subject_data.get("public_key")
+        #public_key = subject_data.get("public_key")
 
-        if not username or not full_name or not email or not public_key:
+        if not username or not full_name or not email:
             return jsonify({'error': 'All subject fields are required'}), 400
 
-        # Validação da chave pública
+        '''# Validação da chave pública
         try:
             # Carregar a chave pública para verificar se é válida
             public_key_obj = serialization.load_pem_public_key(
@@ -202,7 +202,7 @@ class OrganizationController:
                 backend=None
             )
         except (ValueError, InvalidKey) as e:
-            return jsonify({'error': 'Invalid public key format'}), 400
+            return jsonify({'error': 'Invalid public key format'}), 400'''
 
         # Criar organização
         organization = Organization(name=org_name)

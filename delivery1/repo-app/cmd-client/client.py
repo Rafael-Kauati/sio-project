@@ -47,13 +47,13 @@ def list_organizations():
 def create_organization(data):
     try:
         # Carregar o arquivo de chave pública
-        with open(data['public_key_file'], 'r') as key_file:
+        '''with open(data['public_key_file'], 'r') as key_file:
             public_key_data = json.load(key_file)
 
         # Obter a chave pública do conteúdo carregado
         public_key = public_key_data.get("public_key")
         if not public_key:
-            raise ValueError("Public key not found in the provided file.")
+            raise ValueError("Public key not found in the provided file.")'''
 
         # Montar o payload da requisição
         payload = {
@@ -62,7 +62,7 @@ def create_organization(data):
                 "username": data['username'],
                 "full_name": data['full_name'],
                 "email": data['email'],
-                "public_key": public_key
+                #"public_key": public_key
             }
         }
 
