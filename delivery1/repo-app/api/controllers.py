@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import json
 import secrets
@@ -19,6 +20,27 @@ from flask import request
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import base64
+
+def decrypt_with_private_key(private_key_path, encrypted_data):
+        """Descriptografar dados usando a chave privada."""
+        with open(private_key_path, "rb") as key_file:
+            private_key = serialization.load_pem_private_key(
+                key_file.read(), password=None, backend=default_backend()
+            )
+        return private_key.decrypt(
+            encrypted_data,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+def decrypt_with_chacha20(key, nonce, ciphertext):
+        """Descriptografar dados usando ChaCha20."""
+        cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
+        decryptor = cipher.decryptor()
+        return decryptor.update(ciphertext)
 
 def decrypt_session_key(encrypted_session_key, private_key_path="private_key.pem"):
     with open(private_key_path, "rb") as key_file:
@@ -169,62 +191,83 @@ class DocumentController:
 class OrganizationController:
     @staticmethod
     def create_organization():
-        data = request.json
-        org_name = data.get("name")
-        subject_data = data.get("subject")
-        nonce = request.headers.get("X-Nonce")
-
-        # Validação do nonce
-        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
-        if existing_nonce:
-            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
-        else:
-            # Salva o nonce na tabela
-            new_nonce = Nonce(nonce=nonce)
-            db.session.add(new_nonce)
-            db.session.commit()
-
-        # Verificar se os dados necessários foram fornecidos
-        if not org_name or not subject_data:
-            return jsonify({'error': 'Organization name and subject data are required'}), 400
-
-        # Extrair dados do sujeito
-        username = subject_data.get("username")
-        full_name = subject_data.get("full_name")
-        email = subject_data.get("email")
-        #public_key = subject_data.get("public_key")  # Certifique-se de que este campo é obrigatório
-
-        if not username or not full_name or not email :
-            return jsonify({'error': 'All subject fields are required'}), 400
-
-        '''# Validação da chave pública (opcional, se necessário)
         try:
-            # Carregar a chave pública para verificar se é válida
-            public_key_obj = serialization.load_pem_public_key(
-                public_key.encode(),  # Converte a chave pública de string para bytes
-                backend=None
+            # Extrair e descriptografar a chave ChaCha20 e o nonce do cabeçalho
+            encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+            if not encrypted_key_info:
+                return jsonify({"error": "Encrypted key info is missing"}), 400
+
+            key_info = json.loads(encrypted_key_info)
+            private_key_path = "private_key.pem"
+
+            # Descriptografar a chave ChaCha20 e o nonce
+            encrypted_key = binascii.unhexlify(key_info["key"])
+            encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+            chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+            chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+            # Descriptografar o nonce do cabeçalho `X-Nonce`
+            encrypted_nonce_header = request.headers.get("X-Nonce")
+            if not encrypted_nonce_header:
+                return jsonify({"error": "X-Nonce header is missing"}), 400
+            encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+            nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce,encrypted_nonce_header).decode('utf-8')
+            print(nonce_header)
+            # Validação do nonce (replay attack prevention)
+            existing_nonce = Nonce.query.filter_by(nonce=nonce_header).first()
+            if existing_nonce:
+                return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+            else:
+                # Salva o nonce na tabela
+                new_nonce = Nonce(nonce=nonce_header)
+
+                db.session.add(new_nonce)
+                db.session.commit()
+
+            # Descriptografar o payload da requisição
+            encrypted_payload = request.json.get("encrypted_payload")
+            if not encrypted_payload:
+                return jsonify({"error": "Encrypted payload is missing"}), 400
+            encrypted_payload = binascii.unhexlify(encrypted_payload)
+            decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce,encrypted_payload)
+            payload_data = json.loads(decrypted_payload)
+
+            # Extrair dados do payload
+            org_name = payload_data.get("name")
+            print(org_name)
+            subject_data = payload_data.get("subject")
+
+            if not org_name or not subject_data:
+                return jsonify({'error': 'Organization name and subject data are required'}), 400
+
+            # Extrair dados do sujeito
+            username = subject_data.get("username")
+            print(username)
+            full_name = subject_data.get("full_name")
+            email = subject_data.get("email")
+
+            if not username or not full_name or not email:
+                return jsonify({'error': 'All subject fields are required'}), 400
+
+            # Criar instâncias
+            organization = Organization(name=org_name)
+            subject = Subject(
+                username=username,
+                full_name=full_name,
+                email=email
             )
-        except (ValueError, InvalidKey) as e:
-            return jsonify({'error': 'Invalid public key format'}), 400'''
 
-        # Criar instâncias
-        organization = Organization(name=org_name)
-        subject = Subject(
-            username=username,
-            full_name=full_name,
-            email=email,
-            #public_key=public_key
-        )
+            # Adicionar sujeito à organização
+            organization.subjects.append(subject)
 
-        # Adicionar sujeito à organização
-        organization.subjects.append(subject)
-
-        # Salvar entidades no banco de dados
-        try:
+            # Salvar entidades no banco de dados
             db.session.add(organization)
             db.session.commit()
             return jsonify(
                 {'message': 'Organization and subject created successfully, and relationship established'}), 201
+
+        except binascii.Error:
+            return jsonify({"error": "Invalid hexadecimal data in headers or payload"}), 400
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': str(e)}), 500

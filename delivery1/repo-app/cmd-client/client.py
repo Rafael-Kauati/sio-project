@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
-
+from utils import *
 logging.basicConfig(format='%(levelname)s\t- %(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -27,6 +27,19 @@ def save(state):
 
     with open(state_file, 'w') as f:
         f.write(json.dumps(state, indent=4))
+
+
+def generate_chacha20_key_and_nonce():
+    # Generate a 256-bit (32-byte) ChaCha20 key
+    key = os.urandom(32)
+
+    # Generate a 96-bit (12-byte) nonce
+    nonce = os.urandom(16)
+
+    return key, nonce
+
+
+
 
 def list_organizations():
     url = f"http://{state['REP_ADDRESS']}/organizations"
@@ -44,37 +57,62 @@ def list_organizations():
         logger.error(f"Failed to list organizations: {response.status_code}")
 
 
+import json
+import os
+import requests
+import uuid
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.backends import default_backend
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
+
+
 def create_organization(data):
     try:
-        # Carregar o arquivo de chave pública
-        '''with open(data['public_key_file'], 'r') as key_file:
-            public_key_data = json.load(key_file)
+        # Generate ChaCha20 key and nonce
+        key = os.urandom(32)
+        nonce = os.urandom(16)
 
-        # Obter a chave pública do conteúdo carregado
-        public_key = public_key_data.get("public_key")
-        if not public_key:
-            raise ValueError("Public key not found in the provided file.")'''
-
-        # Montar o payload da requisição
+        # Prepare payload
         payload = {
             "name": data['name'],
             "subject": {
                 "username": data['username'],
                 "full_name": data['full_name'],
-                "email": data['email'],
-                #"public_key": public_key
+                "email": data['email']
             }
         }
+        encrypted_payload = encrypt_with_chacha20(key, nonce, json.dumps(payload))
 
-        # Enviar a requisição para criar a organização
-        url = f"http://{state['REP_ADDRESS']}/organizations"
-        nonce = str(uuid.uuid4())  # Exemplo de nonce único
-        headers = {
-            "X-Nonce": nonce
+        # Encrypt ChaCha20 key and nonce with the public key
+        public_key_path = state['REP_PUB_KEY']
+        encrypted_key = encrypt_with_public_key(public_key_path, key)
+        encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+        # Prepare the JSON for the headers
+        nonce_header = str(uuid.uuid4())
+        encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+
+        encryption_header = {
+            "key": encrypted_key.hex(),
+            "nonce": encrypted_nonce.hex()
         }
-        response = requests.post(url, json=payload, headers=headers)
+        headers = {
+            "X-Nonce": encrypted_nonce_header.hex(),
+            "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+        }
 
-        # Verificar o status da resposta
+        # Send the request
+        url = f"http://{state['REP_ADDRESS']}/organizations"
+        response = requests.post(url, json={"encrypted_payload": encrypted_payload.hex()}, headers=headers)
+
+        # Check response status
         if response.status_code == 201:
             logger.info("Organization created successfully.")
             return {"status": "success", "message": "Organization created successfully."}
@@ -91,22 +129,6 @@ def create_organization(data):
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         return {"status": "error", "message": str(e)}
-
-
-def encrypt_session_key(session_key, public_key_path):
-    with open(public_key_path, "rb") as key_file:
-        public_key = serialization.load_pem_public_key(key_file.read())
-
-    encrypted_key = public_key.encrypt(
-        session_key.encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return base64.b64encode(encrypted_key).decode()
-
 
 
 def create_session(data, session_file):
@@ -141,7 +163,7 @@ def create_session(data, session_file):
         response_data = response.json()
         session_key = response_data["session_context"]["session_key"]
 
-        ### Nao encryptar aq : 
+        ### Nao encryptar aq :
 
         # Usa o caminho para a chave pública
         public_key_path = "../public_key.pem"
