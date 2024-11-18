@@ -51,7 +51,15 @@ class Session(db.Model):
     organization = db.relationship('Organization', backref='sessions')
     subject = db.relationship('Subject', backref='sessions')
     roles = db.relationship('Role', secondary=session_roles, backref='sessions')
-    
+
+class Nonce(db.Model):
+    __tablename__ = "nonces"
+    id = db.Column(db.Integer, primary_key=True)
+    nonce = db.Column(db.String(128), unique=True, nullable=False)  # Nonce deve ser único
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+
 
 class Subject(db.Model):
     id = db.Column(db.Integer, primary_key=True)

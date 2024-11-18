@@ -51,7 +51,9 @@ def create_session_route():
 @main_bp.route('/download/<file_handle>', methods=['GET'])
 def download_file(file_handle):
     # Chama o método do controlador
-    response, status_code = DocumentController.download_document(file_handle)
+    nonce = request.headers.get("X-Nonce")
+
+    response, status_code = DocumentController.download_document(file_handle, nonce)
 
     # Caso o método retorne a chave do arquivo, faz o envio do arquivo também
     if status_code == 200:
@@ -96,17 +98,19 @@ def list_session_roles_route(session_key):
 
 @main_bp.route('/sessions/subjects', methods=['GET'])
 def get_subjects_by_session_key_route():
-    # Obtém a session_key do cabeçalho da requisição
+    # Obtém a session_key e o nonce dos cabeçalhos da requisição
     session_key = request.headers.get('X-Session-Key')
+    nonce = request.headers.get('X-Nonce')
 
-    if not session_key:
-        # Retorna um erro se o cabeçalho não estiver presente
-        return jsonify({"error": "Missing 'X-Session-Key' header"}), 400
+    if not session_key or not nonce:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or 'X-Nonce' header"}), 400
 
-    logger.info(f"Request to get subjects by session key: {session_key}")
+    logger.info(f"Request to get subjects by session key: {session_key} and nonce: {nonce}")
 
     # Chama o controlador para processar a lógica
-    return SessionController.get_subjects_by_session_key(session_key)
+    return SessionController.get_subjects_by_session_key(session_key, nonce)
+
 
 
 @main_bp.route('/organization/<string:session_key>/org/roles', methods=['GET'])
@@ -140,6 +144,7 @@ def add_subject_route():
     data = request.json
     # Obtém a session_key dos cabeçalhos
     session_key = request.headers.get("X-Session-Key")
+    nonce = request.headers.get("X-Nonce")
     username = data.get("username")
     name = data.get("name")
     email = data.get("email")
@@ -151,7 +156,7 @@ def add_subject_route():
             {"error": "Todos os campos são obrigatórios: session_key, username, name, email, public_key"}), 400
 
     logger.info(f"Adding subject to organization with session key: {session_key}")
-    result = SessionController.add_subject_to_organization(session_key, username, name, email, public_key)
+    result = SessionController.add_subject_to_organization(session_key, nonce,username, name, email, public_key)
     return jsonify(result), 201 if "id" in result else 400
 
 
@@ -160,6 +165,7 @@ def add_subject_route():
 def add_document_route():
     # Recebe os dados da requisição
     session_key = request.headers.get("X-Session-Key")  # Obtém session_key do cabeçalho
+    nonce = request.headers.get("X-Nonce")  # Obtém session_key do cabeçalho
     file_name = request.form.get("file_name")
     file = request.files.get("file")
     file_encryption_key = request.form['file_encryption_key']
@@ -184,7 +190,7 @@ def add_document_route():
     # Chama o controller para fazer o processamento e salvar o documento
     logger.info(f"Adding document to organization with session key: {session_key} and document name: {file_name}")
     result = SessionController.upload_document_to_organization(
-        session_key, file_name, file, file_handle, file_encryption_key, encryption_vars
+        session_key, nonce,file_name, file, file_handle, file_encryption_key, encryption_vars
     )
 
     # Retorna o resultado conforme o sucesso ou falha
@@ -197,7 +203,8 @@ def add_document_route():
 @main_bp.route('/document/metadata', methods=['GET'])
 def get_document_metadata_route():
     # Recebe a session_key do cabeçalho HTTP
-    session_key = request.headers.get('session_key')  # Obtém session_key dos cabeçalhos
+    session_key = request.headers.get('X-Session-Key')  # Obtém session_key dos cabeçalhos
+    nonce = request.headers.get("X-Nonce")
     document_name = request.args.get('document_name')  # Obtém o document_name dos parâmetros de consulta
 
     if not document_name:
@@ -209,7 +216,7 @@ def get_document_metadata_route():
         return jsonify({"error": "O cabeçalho 'session_key' é obrigatório"}), 400
 
     logger.info(f"Requesting document metadata for session key: {session_key} and document name: {document_name}")
-    result = SessionController.get_document_metadata(session_key, document_name)
+    result = SessionController.get_document_metadata(session_key, nonce,document_name)
     return result
 
 
@@ -220,13 +227,14 @@ def get_document_metadata_route():
 @main_bp.route('/delete_document/<string:document_name>', methods=['DELETE'])
 def delete_document_route(document_name):
     # Recebe a session_key do cabeçalho HTTP
-    session_key = request.headers.get('session_key')
+    session_key = request.headers.get('X-Session-Key')
+    nonce = request.headers.get("X-Nonce")
 
     if not session_key:
         logger.warning("Session key missing for delete request.")
         return jsonify({"error": "O cabeçalho 'session_key' é obrigatório"}), 400
 
     logger.info(f"Request to delete document: {document_name} in session: {session_key}")
-    result = SessionController.delete_document_from_organization(session_key, document_name)
+    result = SessionController.delete_document_from_organization(session_key,nonce, document_name)
     return result
 

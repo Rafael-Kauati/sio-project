@@ -30,7 +30,12 @@ def save(state):
 
 def list_organizations():
     url = f"http://{state['REP_ADDRESS']}/organizations"
-    response = requests.get(url)
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+
+        "X-Nonce": nonce
+    }
+    response = requests.get(url, headers=headers)
     print(response.content)
     if response.status_code == 200:
         logger.info("Organizations listed successfully.")
@@ -63,7 +68,11 @@ def create_organization(data):
 
         # Enviar a requisição para criar a organização
         url = f"http://{state['REP_ADDRESS']}/organizations"
-        response = requests.post(url, json=payload)
+        nonce = str(uuid.uuid4())  # Exemplo de nonce único
+        headers = {
+            "X-Nonce": nonce
+        }
+        response = requests.post(url, json=payload, headers=headers)
 
         # Verificar o status da resposta
         if response.status_code == 201:
@@ -120,12 +129,19 @@ def create_session(data, session_file):
 
     # Envia o payload para criar uma sessão
     url = f"http://{state['REP_ADDRESS']}/sessions"
-    response = requests.post(url, json=payload)
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+
+        "X-Nonce": nonce
+    }
+    response = requests.post(url, json=payload, headers=headers)
 
     if response.status_code == 201:
         # Obtém a resposta e criptografa a session_key
         response_data = response.json()
         session_key = response_data["session_context"]["session_key"]
+
+        ### Nao encryptar aq : 
 
         # Usa o caminho para a chave pública
         public_key_path = "../public_key.pem"
@@ -181,8 +197,10 @@ def add_subject(data, session_file):
     }
 
     # Define os cabeçalhos para incluir a session_key
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
     headers = {
-        "X-Session-Key": session_key
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
     }
 
     # Faz a requisição POST com os cabeçalhos e o payload
@@ -199,8 +217,11 @@ def get_document_metadata(session_file, document_name):
         session_data = json.load(session_file)
         session_key = session_data["session_context"]["session_key"]
 
-    # Definir cabeçalhos e parâmetros
-    headers = {'session_key': session_key}  # Envia session_key no cabeçalho
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
+    }
     params = {'document_name': document_name}
 
     # Enviar requisição GET para o endpoint de metadados do documento
@@ -246,7 +267,11 @@ def download_document(file_handle, file=None):
     :return: JSON com metadados ou None.
     """
     url = f"http://{state['REP_ADDRESS']}/download/{file_handle}"
-    response = requests.get(url)
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+        "X-Nonce": nonce
+    }
+    response = requests.get(url, headers=headers)
 
     # Verifica se o download foi bem-sucedido
     if response.status_code != 200:
@@ -388,8 +413,10 @@ def upload_document(data):
     }
 
     # Define os cabeçalhos para enviar a session_key
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
     headers = {
-        "X-Session-Key": session_key
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
     }
 
     # Faz a requisição POST para enviar o documento criptografado
@@ -462,33 +489,48 @@ def delete_document(session_file, document_name):
     # URL do endpoint para deletar o documento
     url = f"http://{state['REP_ADDRESS']}/delete_document/{document_name}"
 
-    # Definir cabeçalhos com o session_key
-    headers = {'session_key': session_key}  # Envia session_key no cabeçalho
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
+    }
 
     # Enviar requisição DELETE para o endpoint de deletar o documento
     response = requests.delete(url, headers=headers)
 
     return response.json()
 
+
+import uuid
+
+
 def list_subjects(session_file, username=None):
+    """
+    Modifica a session_key para incluir um nonce antes de criptografá-la.
+    """
     # Carregar os dados do arquivo da sessão
     with open(session_file, 'r') as file:
         session_data = json.load(file)
         session_key = session_data["session_context"]["session_key"]
 
+    # Gerar um nonce único
+
+    # Concatenar nonce e session_key
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
+    }
+
     # Definir a URL do servidor
     url = f"http://{state['REP_ADDRESS']}/sessions/subjects"
 
-    # Definir os cabeçalhos para incluir a session_key
-    headers = {
-        "X-Session-Key": session_key
-    }
-
-    # Enviar a requisição GET com a session_key no cabeçalho
+    # Enviar a requisição GET com a session_key e nonce no cabeçalho
     response = requests.get(url, headers=headers)
 
     # Retornar a resposta em formato JSON
     return response.json()
+
 
 def gen_subject_file(password, credentials_file):
     # Generate RSA private/public key pair

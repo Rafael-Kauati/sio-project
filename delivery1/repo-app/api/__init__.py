@@ -7,6 +7,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 import os
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
+from sqlalchemy import text
+
 
 def generate_and_save_master_key(key_path="master_key.pem"):
     # Gera uma nova chave privada EC (usando a curva SECP256R1)
@@ -93,6 +95,10 @@ from .models import Document, Organization, Session, Subject
 # Create the tables in the database
 with app.app_context():
     #db.drop_all()
+    '''with db.engine.connect() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS nonces CASCADE;"))
+        connection.execute(text("DROP TABLE IF EXISTS session CASCADE;"))
+        connection.execute(text("DROP TABLE IF EXISTS organization CASCADE;"))'''
     db.create_all()
 
     # Verify if the organization table exists

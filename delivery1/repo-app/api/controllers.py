@@ -5,31 +5,19 @@ import secrets
 import string
 
 from cryptography.exceptions import InvalidKey
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from flask import jsonify, request, send_file, abort
-from api.models import db, Document, Organization, Session, Subject, Role
-from sqlalchemy import text
-import mimetypes
-from datetime import datetime
+from flask import jsonify, abort
+from api.models import db, Document, Organization, Session, Subject, Role, Nonce
 from werkzeug.utils import secure_filename
 from .utils import *
 from . import app  
 import os
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import base64
-from flask import request
 
 from flask import request
-import base64
 
 
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
 import base64
 
 def decrypt_session_key(encrypted_session_key, private_key_path="private_key.pem"):
@@ -111,7 +99,15 @@ class DocumentController:
 
 
     @staticmethod
-    def download_document(file_handle):
+    def download_document(file_handle, nonce):
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
         # Busca o documento no banco de dados
         document = Document.query.filter_by(file_handle=file_handle).first()
         print(f"\nfile fetched : {document.name}")
@@ -176,6 +172,15 @@ class OrganizationController:
         data = request.json
         org_name = data.get("name")
         subject_data = data.get("subject")
+        nonce = request.headers.get("X-Nonce")
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
 
         if not org_name or not subject_data:
             return jsonify({'error': 'Organization name and subject data are required'}), 400
@@ -231,11 +236,20 @@ class SessionController:
         return Session.query.filter_by(session_key=session_key).first()
 
     @staticmethod
-    def delete_document_from_organization(session_key, document_name):
+    def delete_document_from_organization(session_key, nonce, document_name):
         # Obter a sessão associada à session key
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
+
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
 
         # Obter a organização associada à sessão
         organization = session.organization
@@ -293,11 +307,21 @@ class SessionController:
             return {"success": False, "message": f"Failed to update document: {str(e)}"}, 500
 
     @staticmethod
-    def get_document_metadata(session_key, document_name):
+    def get_document_metadata(session_key, nonce,document_name):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Verifica se o nonce já foi usado para a sessão
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
 
         organization = session.organization
 
@@ -350,12 +374,21 @@ class SessionController:
         return {"metadata": metadata}, 200
 
     @staticmethod
-    def upload_document_to_organization(session_key, file_name, file, file_handle, file_encryption_key, encryption_vars,
+    def upload_document_to_organization(session_key, nonce,file_name, file, file_handle, file_encryption_key, encryption_vars,
                                         private_key_path="master_key.pem.pub"):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
+
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
 
         organization = session.organization
         subject = session.subject
@@ -407,10 +440,19 @@ class SessionController:
         return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
 
     @staticmethod
-    def add_subject_to_organization(session_key, username, name, email, public_key):
+    def add_subject_to_organization(session_key, nonce,username, name, email, public_key):
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
+
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
 
         organization = session.organization
         if not organization:
@@ -458,24 +500,41 @@ class SessionController:
         } for role in roles]), 200
 
     @staticmethod
-    def get_subjects_by_session_key(session_key):
+    def get_subjects_by_session_key(session_key, nonce):
+        """
+        Obtém os subjects associados à organização da sessão após validar o nonce.
+        """
         session = check_session(session_key)
         if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
-        
-        organization = session.organization  # Obtém a organização associada à sessão
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Verifica se o nonce já foi usado para a sessão
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
+
+
+
+        # Obtém a organização associada à sessão
+        organization = session.organization
         if not organization:
-            return jsonify({"error": "Organization not found"}), 404
-        
+            return jsonify({"error": "Organização não encontrada"}), 404
+
         # Obter todos os subjects associados à mesma organização através de suas sessões
         subjects = Subject.query.join(Session).filter(Session.organization_id == organization.id).all()
-        
+
         return jsonify([{
-            'id': subject.id, 
-            'username': subject.username, 
-            'full_name': subject.full_name, 
+            'id': subject.id,
+            'username': subject.username,
+            'full_name': subject.full_name,
             'email': subject.email
         } for subject in subjects]), 200
+
     @staticmethod
     def list_session_roles(session_key):
         session = check_session(session_key)
@@ -488,7 +547,15 @@ class SessionController:
     @staticmethod
     def create_session():
         data = request.json
-
+        nonce = request.headers.get("X-Nonce")
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+        else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
         # Busca a organização pelo nome
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()

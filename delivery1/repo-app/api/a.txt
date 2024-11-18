@@ -1,0 +1,15 @@
+nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
+    }
+
+    nonce = request.headers.get("X-Nonce")
+existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+                else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
