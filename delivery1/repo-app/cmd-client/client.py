@@ -186,27 +186,13 @@ def create_session(data, session_file):
     if response.status_code == 201:
         # Obtém a resposta e criptografa a session_key
         response_data = response.json()
-        encrypted_key = binascii.unhexlify(response_data['encrypted_key'])
-        encrypted_nonce = binascii.unhexlify(response_data['encrypted_nonce'])
-        encrypted_payload = binascii.unhexlify(response_data['encrypted_payload'])
-
-        # Descriptografa a chave e o nonce com a chave pública
-        public_key_path = "public_key.pem"
-        chacha_key = decrypt_with_public_key(public_key_path, encrypted_key)
-        chacha_nonce = decrypt_with_public_key(public_key_path, encrypted_nonce)
-
-        # Usa ChaCha20 para descriptografar o payload
-        decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_payload)
-
-        # Converte o JSON de volta ao objeto original
-        session_context = json.loads(decrypted_payload)
-        print("Session Context:", session_context)
-        session_key = session_context["session_context"]["session_key"]
+        #session_key = response_data["session_context"]["session_key"]
 
         ### Nao encryptar aq :
 
+        '''
         # Usa o caminho para a chave pública
-        '''public_key_path = "../public_key.pem"
+        public_key_path = "../public_key.pem"
         encrypted_session_key = encrypt_session_key(session_key, public_key_path)
 
         # Substitui a chave de sessão pela versão criptografada

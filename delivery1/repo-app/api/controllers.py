@@ -667,31 +667,15 @@ class SessionController:
         db.session.add(new_session)
         db.session.commit()
 
-        serialized_context = {
-            "session_id": new_session.id,
-            "session_key": new_session.session_key,
-            "organization_id": new_session.organization_id,
-            "subject_username": subject.username,
-            "organization_name": organization.name
-        }
-
-        # Serializa o contexto para JSON
-        serialized_context = json.dumps(serialized_context)
-        chacha_key = os.urandom(32)  # 32 bytes para ChaCha20
-        chacha_nonce = os.urandom(16)  # Nonce de 12 bytes (recomendado pelo RFC 8439)
-        # Criptografa o payload com ChaCha20
-        encrypted_payload = encrypt_with_chacha20(chacha_key, chacha_nonce, serialized_context)
-
-        # Criptografa a chave e nonce de ChaCha20 com a chave privada
-        private_key_path = "private_key.pem"
-        encrypted_key = encrypt_with_private_key(private_key_path, chacha_key)
-        encrypted_nonce = encrypt_with_private_key(private_key_path, chacha_nonce)
-
-        # Retorna os dados criptografados
+        # Retorna o contexto da sessão criada
         return jsonify({
-            'encrypted_payload': binascii.hexlify(encrypted_payload).decode(),
-            'encrypted_key': binascii.hexlify(encrypted_key).decode(),
-            'encrypted_nonce': binascii.hexlify(encrypted_nonce).decode()
+            'message': 'Session created successfully',
+            'session_context': {
+                'session_id': new_session.id,
+                'organization_name': organization.name,
+                'subject_username': subject.username,
+                'session_key': new_session.session_key,  # Retorna a chave gerada
+            }
         }), 201
 
     @staticmethod
