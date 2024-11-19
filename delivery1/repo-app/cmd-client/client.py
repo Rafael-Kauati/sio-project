@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import os
 import sys
@@ -156,21 +157,60 @@ def create_session(data, session_file):
 
         "X-Nonce": nonce
     }
-    response = requests.post(url, json=payload, headers=headers)
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    encrypted_payload = encrypt_with_chacha20(key, nonce, json.dumps(payload))
+
+    # Encrypt ChaCha20 key and nonce with the public key
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    response = requests.post(url, json={"encrypted_payload": encrypted_payload.hex()}, headers=headers)
 
     if response.status_code == 201:
         # Obtém a resposta e criptografa a session_key
         response_data = response.json()
-        session_key = response_data["session_context"]["session_key"]
+        encrypted_key = binascii.unhexlify(response_data['encrypted_key'])
+        encrypted_nonce = binascii.unhexlify(response_data['encrypted_nonce'])
+        encrypted_payload = binascii.unhexlify(response_data['encrypted_payload'])
+
+        # Descriptografa a chave e o nonce com a chave pública
+        public_key_path = "public_key.pem"
+        chacha_key = decrypt_with_public_key(public_key_path, encrypted_key)
+        chacha_nonce = decrypt_with_public_key(public_key_path, encrypted_nonce)
+
+        # Usa ChaCha20 para descriptografar o payload
+        decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_payload)
+
+        # Converte o JSON de volta ao objeto original
+        session_context = json.loads(decrypted_payload)
+        print("Session Context:", session_context)
+        session_key = session_context["session_context"]["session_key"]
 
         ### Nao encryptar aq :
 
         # Usa o caminho para a chave pública
-        public_key_path = "../public_key.pem"
+        '''public_key_path = "../public_key.pem"
         encrypted_session_key = encrypt_session_key(session_key, public_key_path)
 
         # Substitui a chave de sessão pela versão criptografada
-        response_data["session_context"]["session_key"] = encrypted_session_key
+        response_data["session_context"]["session_key"] = encrypted_session_key'''
 
         # Salva a resposta atualizada no arquivo de sessão
         with open(session_file, 'w') as file:

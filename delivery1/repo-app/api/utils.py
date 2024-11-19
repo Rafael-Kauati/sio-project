@@ -13,7 +13,23 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 from cryptography.hazmat.primitives.asymmetric import padding, rsa, ec
 from cryptography.hazmat.primitives.serialization import load_der_public_key
+def encrypt_with_chacha20(key, nonce, plaintext):
+    cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
+    encryptor = cipher.encryptor()
+    return encryptor.update(plaintext.encode('utf-8'))
 
+def encrypt_with_private_key(private_key_path, data):
+    with open(private_key_path, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(key_file.read(), password=None, backend=default_backend())
+    encrypted_data = private_key.encrypt(
+        data,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return encrypted_data
 
 def load_ec_master_key(private_key_path="./master_key.pem"):
     abs_path = os.path.abspath(private_key_path)

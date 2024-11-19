@@ -604,15 +604,43 @@ class SessionController:
     @staticmethod
     def create_session():
         data = request.json
-        nonce = request.headers.get("X-Nonce")
-        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+
+        encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+        if not encrypted_key_info:
+            return jsonify({"error": "Encrypted key info is missing"}), 400
+        key_info = json.loads(encrypted_key_info)
+        private_key_path = "private_key.pem"
+
+        encrypted_key = binascii.unhexlify(key_info["key"])
+        encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+        chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+        chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+        # Descriptografar o nonce do cabeçalho `X-Nonce`
+        encrypted_nonce_header = request.headers.get("X-Nonce")
+        if not encrypted_nonce_header:
+            return jsonify({"error": "X-Nonce header is missing"}), 400
+        encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+        nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
+        print(nonce_header)
+        # Validação do nonce (replay attack prevention)
+        existing_nonce = Nonce.query.filter_by(nonce=nonce_header).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
         else:
-            # Se o nonce não existe, insira-o na tabela
-            new_nonce = Nonce(nonce=nonce)
+            # Salva o nonce na tabela
+            new_nonce = Nonce(nonce=nonce_header)
+
             db.session.add(new_nonce)
             db.session.commit()
+
+            # Descriptografar o payload da requisição
+        encrypted_payload = request.json.get("encrypted_payload")
+        if not encrypted_payload:
+            return jsonify({"error": "Encrypted payload is missing"}), 400
+        encrypted_payload = binascii.unhexlify(encrypted_payload)
+        decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_payload)
+        data = json.loads(decrypted_payload)
         # Busca a organização pelo nome
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()
@@ -639,15 +667,31 @@ class SessionController:
         db.session.add(new_session)
         db.session.commit()
 
-        # Retorna o contexto da sessão criada
+        serialized_context = {
+            "session_id": new_session.id,
+            "session_key": new_session.session_key,
+            "organization_id": new_session.organization_id,
+            "subject_username": subject.username,
+            "organization_name": organization.name
+        }
+
+        # Serializa o contexto para JSON
+        serialized_context = json.dumps(serialized_context)
+        chacha_key = os.urandom(32)  # 32 bytes para ChaCha20
+        chacha_nonce = os.urandom(16)  # Nonce de 12 bytes (recomendado pelo RFC 8439)
+        # Criptografa o payload com ChaCha20
+        encrypted_payload = encrypt_with_chacha20(chacha_key, chacha_nonce, serialized_context)
+
+        # Criptografa a chave e nonce de ChaCha20 com a chave privada
+        private_key_path = "private_key.pem"
+        encrypted_key = encrypt_with_private_key(private_key_path, chacha_key)
+        encrypted_nonce = encrypt_with_private_key(private_key_path, chacha_nonce)
+
+        # Retorna os dados criptografados
         return jsonify({
-            'message': 'Session created successfully',
-            'session_context': {
-                'session_id': new_session.id,
-                'organization_name': organization.name,
-                'subject_username': subject.username,
-                'session_key': new_session.session_key,  # Retorna a chave gerada
-            }
+            'encrypted_payload': binascii.hexlify(encrypted_payload).decode(),
+            'encrypted_key': binascii.hexlify(encrypted_key).decode(),
+            'encrypted_nonce': binascii.hexlify(encrypted_nonce).decode()
         }), 201
 
     @staticmethod
