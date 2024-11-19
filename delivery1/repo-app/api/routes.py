@@ -141,7 +141,7 @@ def get_subjects_by_session_key_route():
     print(nonce_header)
 
     encrypted_session_key = request.headers.get("X-Session-Key")
-    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_session_key).decode('utf-8')
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
 
     if not encrypted_session_key or not nonce_header:
         # Retorna um erro se os cabeçalhos não estiverem presentes

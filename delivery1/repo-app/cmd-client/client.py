@@ -633,7 +633,7 @@ def list_subjects(session_file, username=None):
     }
     headers = {
         "X-Nonce": encrypted_nonce_header.hex(),
-        "X-Session-Key": encrypted_session_key.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
         "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
     }
 
