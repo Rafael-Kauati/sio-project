@@ -144,21 +144,69 @@ def get_roles_by_session_key_route(session_key):
     return SessionController.get_roles_by_session_key(session_key)
 
 
+
 @main_bp.route('/sessions/documents', methods=['GET'])
 def get_documents_by_session_key_route():
-    # Obtém a session_key dos cabeçalhos
-    session_key = request.headers.get('X-Session-Key')
+    # Obtém a chave de sessão criptografada
+    encrypted_session_key = request.headers.get('X-Session-Key')
+    if not encrypted_session_key:
+        return jsonify({"error": "Missing 'X-Session-Key'"}), 400
 
-    # Obtém os parâmetros da URL
+    # Obtém as informações da chave criptografada
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Missing 'X-Encrypted-Key-Info'"}), 400
+
+    key_info = json.loads(encrypted_key_info)
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+
+    # Descriptografa a chave e o nonce
+    chacha_key = decrypt_with_private_key("private_key.pem", encrypted_key)
+    chacha_nonce = decrypt_with_private_key("private_key.pem", encrypted_nonce)
+
+    # Valida os comprimentos da chave e do nonce
+    if len(chacha_key) != 32 or len(chacha_nonce) != 16:
+        return jsonify({"error": "Invalid ChaCha20 key or nonce length"}), 400
+
+    # Descriptografa a session_key
+    encrypted_session_key_bytes = binascii.unhexlify(encrypted_session_key)
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_session_key_bytes).decode('utf-8')
+
+    # Acessa e descriptografa cada parâmetro individualmente
     username = request.args.get('username')
+    print(username)
     date_str = request.args.get('date')
-    filter_type = request.args.get('filter_type', 'all')
+    filter_type = request.args.get('filter_type', 'all')  # Valor padrão é 'all'
 
-    logger.info(
-        f"Request to get documents by session key: {session_key} with filters - username: {username}, date: {date_str}, filter_type: {filter_type}")
+    # Descriptografar 'username', se presente
+    if username:
+        encrypted_username = binascii.unhexlify(username) if len(username) % 2 == 0 else username
+        username = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_username).decode('utf-8')
 
+    # Descriptografar 'date_str', se presente
+    if date_str:
+        encrypted_date = binascii.unhexlify(date_str) if len(date_str) % 2 == 0 else date_str
+        date_str = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_date).decode('utf-8')
+
+    # Verificar se o 'filter_type' é hexadecimal e descriptografar se necessário
+    if filter_type:
+        if len(filter_type) % 2 == 0:
+            encrypted_filter = binascii.unhexlify(filter_type)
+            filter_type = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_filter).decode('utf-8')
+        else:
+            print(f"filter_type não é hexadecimal. Usando valor original: {filter_type}")
+
+    # Log para verificar os parâmetros descriptografados
+    print(f"Decrypted params: username={username}, date={date_str}, filter={filter_type}")
+
+    # Chama o controlador para buscar documentos
     documents = DocumentController.get_documents_by_session_key(session_key, username, date_str, filter_type)
     return jsonify(documents), 200
+
+
+
+
 
 
 #######################################################################

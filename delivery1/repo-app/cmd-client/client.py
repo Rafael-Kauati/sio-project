@@ -503,45 +503,47 @@ def get_documents(data):
     with open(data['session_file'], 'r') as session_file:
         session_data = json.load(session_file)
         session_key = session_data["session_context"]["session_key"]
-
+        # Gera a chave e o nonce para ChaCha20
+    key = os.urandom(32)
+    nonce = os.urandom(16)
     # Configura os parâmetros da URL com os argumentos opcionais
     params = {}
     if data["username"]:
-        params["username"] = data["username"]
+        params["username"] = encrypt_with_chacha20(key, nonce, data["username"].encode('utf-8')).hex()
     if data["date"]:
-        date_parts = data["date"].split(' ')
-        if len(date_parts) == 2:
-            filter_type, date_str = date_parts
-            params["date"] = date_str
-            params["filter_type"] = filter_type
-        else:
-            print("Formato de data incorreto. Use <filter_type> <date> (por exemplo, 'nt 2023-01-01').")
-            return
+        params["date"] = encrypt_with_chacha20(key, nonce, data["date"].encode('utf-8')).hex()
 
-    # Configura a URL do servidor
+    #print(params)
     url = f"http://{state['REP_ADDRESS']}/sessions/documents"
 
-    # Define os cabeçalhos para incluir a session_key
-    headers = {
-        "X-Session-Key": session_key
+
+
+    # Criptografa os parâmetros e a session_key
+    encrypted_params = encrypt_with_chacha20(key, nonce, json.dumps(params).encode('utf-8'))
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key.encode('utf-8'))
+
+    # Criptografa a chave e o nonce com a chave pública do servidor
+    encrypted_key = encrypt_with_public_key(state['REP_PUB_KEY'], key)
+    encrypted_nonce = encrypt_with_public_key(state['REP_PUB_KEY'], nonce)
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
     }
 
-    # Faz a requisição GET com os parâmetros e os cabeçalhos
-    response = requests.get(url, headers=headers, params=params)
+    # Configura os cabeçalhos
+    headers = {
+        "X-Session-Key": encrypted_session_key.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)
+    }
 
+    # Envia os parâmetros criptografados como dados no corpo da requisição
+    response = requests.get(url, headers=headers, data=params)
+    #print(response.json())
     # Retorna a resposta em formato JSON
     return response.json()
 
-    # Faz a requisição GET para o endpoint usando session_key
-    url = f"http://{state['REP_ADDRESS']}/sessions/{session_key}/documents"
-    response = requests.get(url, params=params)
 
-    if response.status_code == 200:
-        logger.info("Documents retrieved successfully.")
-        return response.json()
-    else:
-        logger.error(f"Failed to retrieve documents: {response.status_code}")
-        return None
+
 
 def delete_document(session_file, document_name):
     # Carrega o arquivo de sessão para obter o session_key
@@ -856,6 +858,7 @@ elif args.command == "rep_list_docs":
         "session_file": command_args.session_file,
         "username": command_args.username,
         "date": command_args.date,
+        #"date": command_args.date,
     }
     print(get_documents(data))
 
