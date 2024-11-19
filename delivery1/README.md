@@ -1,3 +1,15 @@
+# Project members :
+
+### Rafael kauati - 105925
+### Vasco Vouzela - 108130
+### Alírio Rego   - mete o teu nmec ca
+
+# Major features implemented for this delivery :
+*
+*
+*
+*
+
 # How to install and prepare the env :
 
 ## 1° - Docker, used to have a postgresql database to allow data persistence in the repository:
