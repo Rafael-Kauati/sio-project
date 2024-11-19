@@ -52,10 +52,26 @@ def create_session_route():
 
 @main_bp.route('/download/<file_handle>', methods=['GET'])
 def download_file(file_handle):
-    # Chama o método do controlador
-    nonce = request.headers.get("X-Nonce")
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
 
-    response, status_code = DocumentController.download_document(file_handle, nonce)
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+    encrypted_nonce_header = request.headers.get("X-Nonce")
+    if not encrypted_nonce_header:
+        return jsonify({"error": "X-Nonce header is missing"}), 400
+    encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+    nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
+    print(nonce_header)
+    file_handle = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(file_handle)).decode('utf-8')
+
+    response, status_code = DocumentController.download_document(file_handle, nonce_header)
 
     # Caso o método retorne a chave do arquivo, faz o envio do arquivo também
     if status_code == 200:

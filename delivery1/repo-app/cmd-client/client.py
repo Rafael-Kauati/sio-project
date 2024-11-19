@@ -329,10 +329,24 @@ def download_document(file_handle, file=None):
     :param file: Caminho opcional para salvar o arquivo baixado.
     :return: JSON com metadados ou None.
     """
-    url = f"http://{state['REP_ADDRESS']}/download/{file_handle}"
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+    nonce_header = str(uuid.uuid4())  # Exemplo de nonce único
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_fh = encrypt_with_chacha20(key, nonce, file_handle)
+    url = f"http://{state['REP_ADDRESS']}/download/{encrypted_fh.hex()}"
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
     headers = {
-        "X-Nonce": nonce
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)
     }
     response = requests.get(url, headers=headers)
 
@@ -365,7 +379,7 @@ def download_document(file_handle, file=None):
         print("\nConteúdo não é texto legível. Mostrando como hexadecimal:")
         print(response.content.hex())
 
-    return None
+    return 0
 
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
