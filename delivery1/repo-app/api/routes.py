@@ -322,7 +322,7 @@ def get_document_metadata_route():
     session_key = request.headers.get('X-Session-Key')  # Obtém session_key dos cabeçalhos
     nonce = request.headers.get("X-Nonce")
     document_name = request.args.get('document_name')  # Obtém o document_name dos parâmetros de consulta
-
+    print("enc doc name : ",document_name)
     if not document_name:
         logger.warning("Document name parameter missing for metadata request.")
         return jsonify({"error": "O parâmetro 'document_name' é obrigatório"}), 400
@@ -331,6 +331,29 @@ def get_document_metadata_route():
         logger.warning("Session key missing for metadata request.")
         return jsonify({"error": "O cabeçalho 'session_key' é obrigatório"}), 400
 
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    # Descriptografar o nonce do cabeçalho `X-Nonce`
+    encrypted_nonce_header = request.headers.get("X-Nonce")
+    if not encrypted_nonce_header:
+        return jsonify({"error": "X-Nonce header is missing"}), 400
+    encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+    nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
+    print(nonce_header)
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(session_key)).decode('utf-8')
+    document_name = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(document_name)).decode('utf-8')
+    print("decrypted doc name : ",document_name)
     logger.info(f"Requesting document metadata for session key: {session_key} and document name: {document_name}")
     result = SessionController.get_document_metadata(session_key, nonce,document_name)
     return result

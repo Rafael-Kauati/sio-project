@@ -274,18 +274,37 @@ def add_subject(data, session_file):
 def get_document_metadata(session_file, document_name):
     # URL do endpoint para obter metadados do documento
     url = f"http://{state['REP_ADDRESS']}/document/metadata"
-
+    true_doc_name = document_name
     # Abrir o arquivo de sessão para ler o session_key
     with open(session_file, 'r') as session_file:
         session_data = json.load(session_file)
         session_key = session_data["session_context"]["session_key"]
+    key = os.urandom(32)
+    nonce = os.urandom(16)
 
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
-    headers = {
-        "X-Session-Key": session_key,
-        "X-Nonce": nonce
+
+    # Encrypt ChaCha20 key and nonce with the public key
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
     }
-    params = {'document_name': document_name}
+    # Prepare the JSON for the headers
+    nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    session_key = encrypt_with_chacha20(key, nonce, session_key)
+
+    headers = {
+        "X-Session-Key": binascii.hexlify(session_key).decode(),
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)
+    }
+    document_name = encrypt_with_chacha20(key, nonce,
+             document_name)
+    #print(binascii.hexlify(document_name).decode())
+    params = {'document_name': binascii.hexlify(document_name).decode()}
 
     # Enviar requisição GET para o endpoint de metadados do documento
     response = requests.get(url, headers=headers, params=params)
@@ -304,7 +323,7 @@ def get_document_metadata(session_file, document_name):
         }
 
         # Nome do arquivo de saída
-        output_file = f"{document_name}_encryption_data.json"
+        output_file = f"{true_doc_name}_encryption_data.json"
 
         # Salvar os dados de criptografia no arquivo JSON
         with open(output_file, 'w') as file:

@@ -132,5 +132,6 @@ existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
     }
 
 
-            session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
+            session_key = decrypt_with_chacha20(chacha_key, chacha_nonce,
+             binascii.unhexlify(encrypted_session_key)).decode('utf-8')
 
