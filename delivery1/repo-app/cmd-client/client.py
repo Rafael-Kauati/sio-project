@@ -576,17 +576,31 @@ def list_subjects(session_file, username=None):
         session_data = json.load(file)
         session_key = session_data["session_context"]["session_key"]
 
-    # Gerar um nonce único
-
-    # Concatenar nonce e session_key
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
-    headers = {
-        "X-Session-Key": session_key,
-        "X-Nonce": nonce
-    }
 
     # Definir a URL do servidor
     url = f"http://{state['REP_ADDRESS']}/sessions/subjects"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": encrypted_session_key.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
 
     # Enviar a requisição GET com a session_key e nonce no cabeçalho
     response = requests.get(url, headers=headers)

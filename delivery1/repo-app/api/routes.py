@@ -103,15 +103,38 @@ def get_subjects_by_session_key_route():
     # Obtém a session_key e o nonce dos cabeçalhos da requisição
     session_key = request.headers.get('X-Session-Key')
     nonce = request.headers.get('X-Nonce')
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
 
-    if not session_key or not nonce:
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    # Descriptografar o nonce do cabeçalho
+    encrypted_nonce_header = request.headers.get("X-Nonce")
+    if not encrypted_nonce_header:
+        return jsonify({"error": "X-Nonce header is missing"}), 400
+    encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+    nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
+    print(nonce_header)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
+
+    if not encrypted_session_key or not nonce_header:
         # Retorna um erro se os cabeçalhos não estiverem presentes
         return jsonify({"error": "Missing 'X-Session-Key' or 'X-Nonce' header"}), 400
 
     logger.info(f"Request to get subjects by session key: {session_key} and nonce: {nonce}")
 
     # Chama o controlador para processar a lógica
-    return SessionController.get_subjects_by_session_key(session_key, nonce)
+    return SessionController.get_subjects_by_session_key(session_key, nonce_header)
 
 
 
