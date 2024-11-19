@@ -566,13 +566,32 @@ def delete_document(session_file, document_name):
         session_key = session_data["session_context"]["session_key"]
 
     # URL do endpoint para deletar o documento
-    url = f"http://{state['REP_ADDRESS']}/delete_document/{document_name}"
 
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
-    headers = {
-        "X-Session-Key": session_key,
-        "X-Nonce": nonce
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    enc_doc_name = encrypt_with_chacha20(key, nonce, document_name)
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
     }
+    headers = {
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    url = f"http://{state['REP_ADDRESS']}/delete_document/{enc_doc_name.hex()}"
 
     # Enviar requisição DELETE para o endpoint de deletar o documento
     response = requests.delete(url, headers=headers)

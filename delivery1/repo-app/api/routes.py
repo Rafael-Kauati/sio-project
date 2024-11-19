@@ -141,7 +141,7 @@ def get_subjects_by_session_key_route():
     print(nonce_header)
 
     encrypted_session_key = request.headers.get("X-Session-Key")
-    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_session_key).decode('utf-8')
 
     if not encrypted_session_key or not nonce_header:
         # Retorna um erro se os cabeçalhos não estiverem presentes
@@ -343,14 +343,38 @@ def get_document_metadata_route():
 @main_bp.route('/delete_document/<string:document_name>', methods=['DELETE'])
 def delete_document_route(document_name):
     # Recebe a session_key do cabeçalho HTTP
-    session_key = request.headers.get('X-Session-Key')
-    nonce = request.headers.get("X-Nonce")
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
 
-    if not session_key:
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    # Descriptografar o nonce do cabeçalho `X-Nonce`
+    encrypted_nonce_header = request.headers.get("X-Nonce")
+    if not encrypted_nonce_header:
+        return jsonify({"error": "X-Nonce header is missing"}), 400
+    encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+    nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
+    print(nonce_header)
+
+    enc_session_key = request.headers.get('X-Session-Key')
+    if not enc_session_key:
         logger.warning("Session key missing for delete request.")
         return jsonify({"error": "O cabeçalho 'session_key' é obrigatório"}), 400
+    session_key =  decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_session_key)).decode('utf-8')
+
+    enc_doc_name = document_name
+
+    document_name = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_doc_name)).decode('utf-8')
 
     logger.info(f"Request to delete document: {document_name} in session: {session_key}")
-    result = SessionController.delete_document_from_organization(session_key,nonce, document_name)
+    result = SessionController.delete_document_from_organization(session_key,nonce_header, document_name)
     return result
 

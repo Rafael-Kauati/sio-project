@@ -120,3 +120,17 @@ existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
 
             if not username or not full_name or not email:
                 return jsonify({'error': 'All subject fields are required'}), 400
+
+
+
+
+        headers = {
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "X-Nonce": nonce_header,
+        "X-Encrypted-Key": binascii.hexlify(encrypted_key).decode(),
+        "X-Encrypted-Nonce": binascii.hexlify(encrypted_nonce).decode(),
+    }
+
+
+            session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
+
