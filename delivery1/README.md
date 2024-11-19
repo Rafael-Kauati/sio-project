@@ -54,7 +54,7 @@ To create a new subject :
 ```bash
 python3 client.py rep_subject_credentials "password2" "credentials"
 python3 client.py rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
-python3 client.py rep_create_session "Org4"  "gabs"  "password"  "key"  "credentials" "session_file"
+python3 client.py rep_create_session "Org4"  "gabs"  "password" "credentials" "session_file"
 ```
 
 To list the subjects of the organization :
