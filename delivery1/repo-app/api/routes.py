@@ -1,6 +1,8 @@
 import base64
+import binascii
 import hashlib
 import io
+import json
 import logging
 import os
 
@@ -9,7 +11,7 @@ from api.controllers import OrganizationController, SessionController, DocumentC
 from api import logger, Document
 from api.utils import decrypt_file_key_with_ec_master, load_ec_master_key, load_ec_private_key
 from . import app
-
+from .utils import *
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 
@@ -141,23 +143,50 @@ def get_documents_by_session_key_route():
 #######################################################################
 @main_bp.route('/add_subject', methods=['POST'])
 def add_subject_route():
-    data = request.json
-    # Obtém a session_key dos cabeçalhos
-    session_key = request.headers.get("X-Session-Key")
-    nonce = request.headers.get("X-Nonce")
-    username = data.get("username")
-    name = data.get("name")
-    email = data.get("email")
-    #public_key = data.get("public_key")
+    try:
+        # Obtém os cabeçalhos criptografados
+        encrypted_session_key = request.headers.get("X-Session-Key")
+        encrypted_key = request.headers.get("X-Encrypted-Key")
+        encrypted_nonce = request.headers.get("X-Encrypted-Nonce")
+        nonce_header = request.headers.get("X-Nonce")
 
-    if not all([session_key, username, name, email]):
-        logger.warning("Missing required fields for adding subject.")
-        return jsonify(
-            {"error": "Todos os campos são obrigatórios: session_key, username, name, email, public_key"}), 400
+        if not all([encrypted_session_key, encrypted_key, encrypted_nonce, nonce_header]):
+            logger.warning("Missing required headers for adding subject.")
+            return jsonify({"error": "Todos os cabeçalhos são obrigatórios"}), 400
 
-    logger.info(f"Adding subject to organization with session key: {session_key}")
-    result = SessionController.add_subject_to_organization(session_key, nonce,username, name, email)
-    return jsonify(result), 201 if "id" in result else 400
+        # Obtém o payload criptografado
+        encrypted_payload = request.get_data()
+
+        # Descriptografar chave e nonce ChaCha20 com a chave privada
+        private_key_path = "private_key.pem"  # Caminho para a chave privada
+        chacha_key = decrypt_with_private_key(private_key_path, binascii.unhexlify(encrypted_key))
+        chacha_nonce = decrypt_with_private_key(private_key_path, binascii.unhexlify(encrypted_nonce))
+
+        # Descriptografar session_key e payload com ChaCha20
+        session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
+        payload_json = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_payload)).decode('utf-8')
+        data = json.loads(payload_json)
+
+        # Extrai os campos do payload descriptografado
+        username = data.get("username")
+        name = data.get("name")
+        email = data.get("email")
+
+        if not all([session_key, username, name, email]):
+            logger.warning("Missing required fields for adding subject.")
+            return jsonify(
+                {"error": "Todos os campos são obrigatórios: session_key, username, name, email"}), 400
+
+        # Chama o controlador para adicionar o sujeito
+        logger.info(f"Adding subject to organization with session key: {session_key}")
+        result, status_code = SessionController.add_subject_to_organization(
+            session_key, nonce_header, username, name, email
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Erro ao processar a requisição: {str(e)}")
+        return jsonify({"error": f"Erro interno: {str(e)}"}), 500
+
 
 
 

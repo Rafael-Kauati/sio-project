@@ -13,7 +13,23 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 from cryptography.hazmat.primitives.asymmetric import padding, rsa, ec
 from cryptography.hazmat.primitives.serialization import load_der_public_key
+def encrypt_with_chacha20(key, nonce, plaintext):
+    cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
+    encryptor = cipher.encryptor()
+    return encryptor.update(plaintext.encode('utf-8'))
 
+def encrypt_with_private_key(private_key_path, data):
+    with open(private_key_path, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(key_file.read(), password=None, backend=default_backend())
+    encrypted_data = private_key.encrypt(
+        data,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return encrypted_data
 
 def load_ec_master_key(private_key_path="./master_key.pem"):
     abs_path = os.path.abspath(private_key_path)
@@ -115,8 +131,47 @@ def load_ec_private_key(private_key_path="./master_key.pem"):
         )
     return private_key
 
+def decrypt_with_chacha20(key, nonce, ciphertext):
+        """Descriptografar dados usando ChaCha20."""
+        cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
+        decryptor = cipher.decryptor()
+        return decryptor.update(ciphertext)
 
 
+def decrypt_session_key(encrypted_session_key, private_key_path="private_key.pem"):
+    with open(private_key_path, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(), password=None
+        )
+
+    try:
+        decrypted_key = private_key.decrypt(
+            encrypted_session_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+    except Exception as e:
+        raise ValueError(f"Erro ao descriptografar a chave de sessão: {e}")
+
+    return decrypted_key.decode()
+
+def decrypt_with_private_key(private_key_path, encrypted_data):
+        """Descriptografar dados usando a chave privada."""
+        with open(private_key_path, "rb") as key_file:
+            private_key = serialization.load_pem_private_key(
+                key_file.read(), password=None, backend=default_backend()
+            )
+        return private_key.decrypt(
+            encrypted_data,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
 
 def is_session_valid(session):
     expiration_time = timedelta(seconds=2400) # 4 minutes

@@ -21,58 +21,21 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import base64
 
-def decrypt_with_private_key(private_key_path, encrypted_data):
-        """Descriptografar dados usando a chave privada."""
-        with open(private_key_path, "rb") as key_file:
-            private_key = serialization.load_pem_private_key(
-                key_file.read(), password=None, backend=default_backend()
-            )
-        return private_key.decrypt(
-            encrypted_data,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
 
-def decrypt_with_chacha20(key, nonce, ciphertext):
-        """Descriptografar dados usando ChaCha20."""
-        cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
-        decryptor = cipher.decryptor()
-        return decryptor.update(ciphertext)
 
-def decrypt_session_key(encrypted_session_key, private_key_path="private_key.pem"):
-    with open(private_key_path, "rb") as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(), password=None
-        )
 
-    try:
-        decrypted_key = private_key.decrypt(
-            encrypted_session_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-    except Exception as e:
-        raise ValueError(f"Erro ao descriptografar a chave de sessão: {e}")
 
-    return decrypted_key.decode()
-
-def check_session(encrypted_session_key_from_url):
+def check_session(session_key):
     """
     Verifica a validade de uma sessão a partir de uma chave de sessão criptografada.
     """
     # Descriptografa a chave de sessão
-    try:
+    '''try:
         encrypted_session_key_bytes = base64.b64decode(encrypted_session_key_from_url)
         session_key = decrypt_session_key(encrypted_session_key_bytes)
     except Exception as e:
         print(f"Erro ao descriptografar a chave de sessão: {e}")
-        return None  # Caso a descriptografia falhe, retorna None
+        return None  # Caso a descriptografia falhe, retorna None'''
 
     # Busca a sessão no banco usando a chave de sessão descriptografada
     session = Session.query.filter_by(session_key=session_key).first()
@@ -604,15 +567,43 @@ class SessionController:
     @staticmethod
     def create_session():
         data = request.json
-        nonce = request.headers.get("X-Nonce")
-        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+
+        encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+        if not encrypted_key_info:
+            return jsonify({"error": "Encrypted key info is missing"}), 400
+        key_info = json.loads(encrypted_key_info)
+        private_key_path = "private_key.pem"
+
+        encrypted_key = binascii.unhexlify(key_info["key"])
+        encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+        chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+        chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+        # Descriptografar o nonce do cabeçalho `X-Nonce`
+        encrypted_nonce_header = request.headers.get("X-Nonce")
+        if not encrypted_nonce_header:
+            return jsonify({"error": "X-Nonce header is missing"}), 400
+        encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+        nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
+        print(nonce_header)
+        # Validação do nonce (replay attack prevention)
+        existing_nonce = Nonce.query.filter_by(nonce=nonce_header).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
         else:
-            # Se o nonce não existe, insira-o na tabela
-            new_nonce = Nonce(nonce=nonce)
+            # Salva o nonce na tabela
+            new_nonce = Nonce(nonce=nonce_header)
+
             db.session.add(new_nonce)
             db.session.commit()
+
+            # Descriptografar o payload da requisição
+        encrypted_payload = request.json.get("encrypted_payload")
+        if not encrypted_payload:
+            return jsonify({"error": "Encrypted payload is missing"}), 400
+        encrypted_payload = binascii.unhexlify(encrypted_payload)
+        decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_payload)
+        data = json.loads(decrypted_payload)
         # Busca a organização pelo nome
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()
