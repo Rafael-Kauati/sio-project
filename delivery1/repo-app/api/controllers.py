@@ -21,58 +21,21 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import base64
 
-def decrypt_with_private_key(private_key_path, encrypted_data):
-        """Descriptografar dados usando a chave privada."""
-        with open(private_key_path, "rb") as key_file:
-            private_key = serialization.load_pem_private_key(
-                key_file.read(), password=None, backend=default_backend()
-            )
-        return private_key.decrypt(
-            encrypted_data,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
 
-def decrypt_with_chacha20(key, nonce, ciphertext):
-        """Descriptografar dados usando ChaCha20."""
-        cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
-        decryptor = cipher.decryptor()
-        return decryptor.update(ciphertext)
 
-def decrypt_session_key(encrypted_session_key, private_key_path="private_key.pem"):
-    with open(private_key_path, "rb") as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(), password=None
-        )
 
-    try:
-        decrypted_key = private_key.decrypt(
-            encrypted_session_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-    except Exception as e:
-        raise ValueError(f"Erro ao descriptografar a chave de sessão: {e}")
 
-    return decrypted_key.decode()
-
-def check_session(encrypted_session_key_from_url):
+def check_session(session_key):
     """
     Verifica a validade de uma sessão a partir de uma chave de sessão criptografada.
     """
     # Descriptografa a chave de sessão
-    try:
+    '''try:
         encrypted_session_key_bytes = base64.b64decode(encrypted_session_key_from_url)
         session_key = decrypt_session_key(encrypted_session_key_bytes)
     except Exception as e:
         print(f"Erro ao descriptografar a chave de sessão: {e}")
-        return None  # Caso a descriptografia falhe, retorna None
+        return None  # Caso a descriptografia falhe, retorna None'''
 
     # Busca a sessão no banco usando a chave de sessão descriptografada
     session = Session.query.filter_by(session_key=session_key).first()

@@ -225,35 +225,50 @@ def add_subject(data, session_file):
     # Carrega o arquivo de sessão para obter a session_key
     with open(session_file, 'r') as session_file:
         session_data = json.load(session_file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_key"].encode('utf-8')  # Garantir que está como bytes
 
+    # Carrega as credenciais do arquivo
     with open(data['credentials_file'], 'r') as cred_file:
         credentials = json.load(cred_file)
 
-        # Obter a chave pública do conteúdo carregado
-        public_key = credentials.get("public_key")
-        if not public_key:
-            raise ValueError("Public key not found in the provided file.")
+    # Gerar chave e nonce ChaCha20
+    chacha_key = os.urandom(32)  # 32 bytes para a chave
+    chacha_nonce = os.urandom(16)  # 16 bytes para o nonce
 
-    # Payload agora não inclui mais a session_key, pois ela será enviada no cabeçalho
+    # Criptografar o payload com ChaCha20
     payload = {
         "username": data['username'],
         "name": data['name'],
         "email": data['email'],
-        "public_key": public_key,
+        "public_key": credentials.get("public_key"),
         "credentials": credentials
     }
+    payload_json = json.dumps(payload) # Serializa e converte para bytes
+    encrypted_payload = encrypt_with_chacha20(chacha_key, chacha_nonce, payload_json)
 
-    # Define os cabeçalhos para incluir a session_key
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    # Criptografar o session_key com ChaCha20
+    encrypted_session_key = encrypt_with_chacha20(chacha_key, chacha_nonce, session_key)
+
+    # Criptografar a chave e o nonce do ChaCha20 com a chave pública
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, chacha_key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, chacha_nonce)
+
+    # Gerar um nonce único para o cabeçalho
+    nonce_header = str(uuid.uuid4())
+
+    # Define os cabeçalhos para incluir a session_key e o nonce
     headers = {
-        "X-Session-Key": session_key,
-        "X-Nonce": nonce
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "X-Nonce": nonce_header,
+        "X-Encrypted-Key": binascii.hexlify(encrypted_key).decode(),
+        "X-Encrypted-Nonce": binascii.hexlify(encrypted_nonce).decode(),
     }
 
-    # Faz a requisição POST com os cabeçalhos e o payload
-    response = requests.post(url, json=payload, headers=headers)
+    # Faz a requisição POST com os cabeçalhos e o payload criptografado
+    response = requests.post(url, data=binascii.hexlify(encrypted_payload), headers=headers)
     return response
+
 
 
 def get_document_metadata(session_file, document_name):

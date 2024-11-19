@@ -8,9 +8,18 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 import logging
 def encrypt_with_chacha20(key, nonce, plaintext):
+    """
+    Criptografa os dados usando o algoritmo ChaCha20.
+    """
     cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend())
     encryptor = cipher.encryptor()
-    return encryptor.update(plaintext.encode('utf-8'))
+
+    # Certifica-se de que o texto está no formato correto
+    if isinstance(plaintext, str):
+        plaintext = plaintext.encode('utf-8')  # Converte para bytes se for string
+
+    return encryptor.update(plaintext)
+
 
 
 def encrypt_with_public_key(public_key_pem, data):

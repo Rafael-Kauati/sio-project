@@ -4,6 +4,52 @@ nonce = str(uuid.uuid4())  # Exemplo de nonce único
         "X-Nonce": nonce
     }
 
+    url = f"http://{state['REP_ADDRESS']}/sessions"
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+
+        "X-Nonce": nonce
+    }
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    encrypted_payload = encrypt_with_chacha20(key, nonce, json.dumps(payload))
+
+    # Encrypt ChaCha20 key and nonce with the public key
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    response = requests.post(url, json={"encrypted_payload": encrypted_payload.hex()}, headers=headers)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     nonce = request.headers.get("X-Nonce")
 existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
