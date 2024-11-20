@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 client.py rep_get_file $1 -f  $2
+python3 client.py rep_get_file $1 $2 $3

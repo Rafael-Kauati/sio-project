@@ -885,7 +885,11 @@ def parse_args(state):
 
     if args.command == "rep_get_file":
         command_parser.add_argument("file_handle", help="File Handle to download the file")
-        command_parser.add_argument("-f", "--file", help="File to save the document (optional)")
+        command_parser.add_argument(
+            "-f", "--file",
+            help="File to save the document (optional)",
+            default=None
+        )
 
 
     elif args.command == "rep_list_subjects":

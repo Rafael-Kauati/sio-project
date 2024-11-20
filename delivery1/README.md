@@ -49,22 +49,26 @@ To create a key pair for a subject:
 ```bash
 bash rep_subject_credentials "password" "credentials"
 ```
+<hr>
 
 To create a new organization :
 ```bash
 bash rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  
 ```
+<hr>
 
 To list all organizations :
 ```bash
 bash rep_list_orgs
 ```
+<hr>
 
 To create a new session in that organization :
 ```bash
 
 bash rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file" 
 ```
+<hr>
 
 
 To create a new subject :
@@ -73,36 +77,49 @@ bash rep_subject_credentials "password2" "credentials"
 bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
 bash rep_create_session "Org4"  "gabs"  "password" "credentials" "session_file"
 ```
+<hr>
 
 To list the subjects of the organization :
 ```bash
 bash rep_list_subjects  "session_file"
 ```
+<hr>
 
 To upload a document with the session(note: this command assumes that the document is not encrypted, so it encrypts it and sends the encrypted key, encryptography data and the file handle within the request) :
 ```bash
 bash rep_add_doc "session_file" "test" "./test"
 ```
+<hr>
 
 To list files from an organization of the session key :
 ```bash
 bash rep_list_docs "session_file"
 ```
+<hr>
 
 To get document metadata (the encryption metadata is stored in local file to be used in the decryption command) :
 ```bash
 bash rep_get_doc_metadata "session_file" "test"
 ```
+<hr>
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
+Note : This method receive the content of the file encrypted from the server, if its not readable, then returns as hex value 
 ```bash
-bash rep_get_file d8c3b75e09249b626be4fb9ff7de83867e3fcd6f1afa664c5131d81055ac8867  "output"
+bash rep_get_file d8c3b75e09249b626be4fb9ff7de83867e3fcd6f1afa664c5131d81055ac8867 
 ```
+Thats why we recommend to test with the -f/--file option to write the encrypted content in the file directly so can be used in the nexts commands
+```bash
+bash rep_get_file d8c3b75e09249b626be4fb9ff7de83867e3fcd6f1afa664c5131d81055ac8867 -f "output"
+```
+<hr>
 
 To decrypt an encrypted document (the document must be in the local machine), the decrypted data is also stored at a {encrypted_file}_decrypted file (automatically) :
 ```bash
 bash rep_decrypt_file "output" "test_encryption_data.json"
 ```
+<hr>
+
 To delete document :
 ```bash
 
