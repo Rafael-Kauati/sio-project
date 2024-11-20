@@ -8,7 +8,7 @@
 * Confidentiality over the requests made to the server, performed by a hybrid encryption where the content of the request is firstly encrypted with a symmetric key and the symmetric key is sent it ciphred by the a public key of a key pair of the server (only the server can decrypt the content) 
 * Protection over replay attacks with NONCE that is provided by the server to the client and must be used in the next request made by the client, the server checks the existence of the nonce in the DB, checks if it was already used, perform ther operation of the request and returns a new NONCE to be used by the client in the next request that needs it
 * The decrypt file feature allows multiply types of decryption algorithms, in the project it was used only encryption with ChaCha20, but, if having the correct encryption metadata, it should be able to decrypt any encrypt file
-* 
+* Check the 3° topic to test all the commands implemented
 
 # How to install and prepare the env :
 
