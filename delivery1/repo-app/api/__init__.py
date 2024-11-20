@@ -94,7 +94,7 @@ from .models import Document, Organization, Session, Subject
 #generate_and_save_master_key()
 # Create the tables in the database
 with app.app_context():
-    db.drop_all()
+    #db.drop_all()
     '''with db.engine.connect() as connection:
         connection.execute(text("DROP TABLE IF EXISTS nonces CASCADE;"))
         connection.execute(text("DROP TABLE IF EXISTS session CASCADE;"))
