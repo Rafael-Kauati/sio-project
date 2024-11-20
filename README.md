@@ -3,7 +3,7 @@
 # sio_2425_project
 Information regarding the 1st delivery in the delivery1/README.md
 # Group members
-Rafael kauati - 105925
-Vasco Vouzela - 108130
-Alírio Rego - 
+* Rafael kauati - 105925
+* Vasco Vouzela - 108130
+* Alírio Rego - 
 
