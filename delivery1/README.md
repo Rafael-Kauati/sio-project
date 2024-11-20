@@ -55,6 +55,11 @@ To create a new organization :
 python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  --repo "localhost:5000"
 ```
 
+To list all organizations :
+```bash
+python client.py rep_list_orgs
+```
+
 To create a new session in that organization :
 ```bash
 

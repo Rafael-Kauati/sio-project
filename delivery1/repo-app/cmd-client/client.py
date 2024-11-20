@@ -50,9 +50,9 @@ def list_organizations():
         "X-Nonce": nonce
     }'''
     response = requests.get(url)
-    print(response.content)
+    #print(response.content)
     if response.status_code == 200:
-        logger.info("Organizations listed successfully.")
+        #logger.info("Organizations listed successfully.")
         return response.json()
     else:
         logger.error(f"Failed to list organizations: {response.status_code}")
@@ -272,8 +272,10 @@ def add_subject(data, session_file):
         session_data["session_context"]["nonce"] = new_nonce
         with open(session_file, 'w') as session_file_handle:
             json.dump(session_data, session_file_handle, indent=4)
+    if response.status_code != 201:
+        return 1
 
-    return response
+    return 0
 
 
 
@@ -783,7 +785,7 @@ def parse_args(state):
     parser = argparse.ArgumentParser()
 
     # Define o argumento principal 'command' e os argumentos opcionais
-    parser.add_argument("command", choices=["list_organizations",
+    parser.add_argument("command", choices=["rep_list_orgs",
                                             "rep_create_org", "rep_create_session",
                                             "download_file", "rep_get_doc_metadata",
                                             "rep_list_docs",
@@ -912,8 +914,8 @@ if 'REP_PUB_KEY' not in state:
   sys.exit(-1)
 
 # Handle the command execution
-if args.command == "list_organizations":
-    list_organizations()
+if args.command == "rep_list_orgs":
+    print(list_organizations())
 
 elif args.command == "rep_add_doc":
     data = {
