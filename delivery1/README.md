@@ -47,64 +47,64 @@ source venv/bin/activate
 
 To create a key pair for a subject:
 ```bash
-python3 client.py rep_subject_credentials "password" "credentials"
+bash rep_subject_credentials "password" "credentials"
 ```
 
 To create a new organization :
 ```bash
-python client.py rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  --repo "localhost:5000"
+bash rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  
 ```
 
 To list all organizations :
 ```bash
-python client.py rep_list_orgs
+bash rep_list_orgs
 ```
 
 To create a new session in that organization :
 ```bash
 
-python3 client.py rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file"  --key "../public_key.pem"
+bash rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file" 
 ```
 
 
 To create a new subject :
 ```bash
-python3 client.py rep_subject_credentials "password2" "credentials"
-python3 client.py rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
-python3 client.py rep_create_session "Org4"  "gabs"  "password" "credentials" "session_file"
+bash rep_subject_credentials "password2" "credentials"
+bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
+bash rep_create_session "Org4"  "gabs"  "password" "credentials" "session_file"
 ```
 
 To list the subjects of the organization :
 ```bash
-python3 client.py rep_list_subjects  "session_file"
+bash rep_list_subjects  "session_file"
 ```
 
 To upload a document with the session(note: this command assumes that the document is not encrypted, so it encrypts it and sends the encrypted key, encryptography data and the file handle within the request) :
 ```bash
-python3 client.py rep_add_doc "session_file" "test" "./test"
+bash rep_add_doc "session_file" "test" "./test"
 ```
 
 To list files from an organization of the session key :
 ```bash
-python3 client.py rep_list_docs "session_file"
+bash rep_list_docs "session_file"
 ```
 
 To get document metadata (the encryption metadata is stored in local file to be used in the decryption command) :
 ```bash
-python3 client.py rep_get_doc_metadata "session_file" "test"
+bash rep_get_doc_metadata "session_file" "test"
 ```
 
 To download the file (change the hash value of to the correct file handle printed from the previous command) :
 ```bash
-python3 client.py rep_get_file d8c3b75e09249b626be4fb9ff7de83867e3fcd6f1afa664c5131d81055ac8867 -f  "output"
+bash rep_get_file d8c3b75e09249b626be4fb9ff7de83867e3fcd6f1afa664c5131d81055ac8867  "output"
 ```
 
 To decrypt an encrypted document (the document must be in the local machine), the decrypted data is also stored at a {encrypted_file}_decrypted file (automatically) :
 ```bash
-python3 client.py rep_decrypt_file "output" "test_encryption_data.json"
+bash rep_decrypt_file "output" "test_encryption_data.json"
 ```
 To delete document :
 ```bash
 
-python3 client.py rep_delete_doc "session_file" "test"
+bash rep_delete_doc "session_file" "test"
 ```
