@@ -764,15 +764,15 @@ def load_state():
 def parse_env(state):
     if 'REP_ADDRESS' in os.environ:
         state['REP_ADDRESS'] = os.getenv('REP_ADDRESS')
-        logger.info('Setting REP_ADDRESS from Environment to: ' + state['REP_ADDRESS'])
-        print('Setting REP_ADDRESS from Environment to: ' + state['REP_ADDRESS'])
+        logger.info('Setting REP_ADDRESS from Environment to: ' )
+        #print('Setting REP_ADDRESS from Environment to: ' + state['REP_ADDRESS'])
 
 
 
     if 'REP_PUB_KEY' in os.environ:
         rep_pub_key = os.getenv('REP_PUB_KEY')
-        logger.info('Loading REP_PUB_KEY from env variable: ' + state['REP_PUB_KEY'])
-        print('Loading REP_PUB_KEY from env variable: ' + state['REP_PUB_KEY'])
+        logger.info('Loading REP_PUB_KEY from env variable: ' )
+        #print('Loading REP_PUB_KEY from env variable: ' )
         if os.path.exists(rep_pub_key):
             with open(rep_pub_key, 'r') as f:
                 state['REP_PUB_KEY'] = f.read()

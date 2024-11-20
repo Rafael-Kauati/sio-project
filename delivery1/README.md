@@ -29,7 +29,7 @@ docker-compose up
 . venv-and-install.sh
 ```
 
-### Then you can run the flask app with run-flask-app.sh file at the delivery1/repo-app/, this script also set the env vars to be used by the client, regarding the public key and server address
+### Then you can run the flask app with run-flask-app.sh file at the delivery1/repo-app/
 
 ```bash
 . run-flask-app.sh
@@ -37,12 +37,12 @@ docker-compose up
 
 # How to test the client and the repository:
 
-## 3° - In other terminal, travel to delivery1/repo-app/cmd-client, and enter the virtual env there: 
+## 3° - In other terminal, travel to delivery1/repo-app, and enter the virtual env there: 
 ```bash
 source venv/bin/activate
 ```
 
-### Run the script to start the var env to be used in the client: 
+### At delivery1/repo-app/cmd-client, run this script below, that set the env vars to be used by the client, the public key and server address: 
 ```bash
 . env-vars-init.sh
 ```
