@@ -10,11 +10,11 @@ session_roles = db.Table('session_roles',
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    document_handle = db.Column(db.String(64), unique=True, nullable=False)
+    #document_handle = db.Column(db.String(64), unique=True, nullable=True)
     name = db.Column(db.String(128), nullable=False)
     create_date = db.Column(db.DateTime, nullable=False)
     creator = db.Column(db.String(128), nullable=False)
-    file_handle = db.Column(db.String(1000), unique=True, nullable=True)
+    file_handle = db.Column(db.String(1000), unique=False, nullable=True)
     acl = db.Column(db.JSON, nullable=False)
     encrypted_file_key = db.Column(db.LargeBinary, nullable=True)  # Chave de criptografia do arquivo
     iv = db.Column(db.LargeBinary, nullable=False)  # Armazena o IV usado na criptografia

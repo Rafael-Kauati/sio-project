@@ -287,7 +287,7 @@ class SessionController:
 
         # Buscar o documento na base de dados
         document = db.session.query(Document).filter_by(
-            organization_id=organization.id, document_handle=document_name
+            organization_id=organization.id, name=document_name
         ).first()
 
         if not document:
@@ -354,7 +354,7 @@ class SessionController:
 
         # Busca o documento na organização especificada
         document = Document.query.filter_by(
-            organization_id=organization.id, document_handle=document_name
+            organization_id=organization.id, name=document_name
         ).first()
 
         if not document:
@@ -458,7 +458,7 @@ class SessionController:
 
         # Cria um novo documento, incluindo o campo `encryption_vars`
         new_document = Document(
-            document_handle=file_name,
+            #document_handle=file_name,
             name=file_name,
             create_date=datetime.now(),
             creator=subject.username,
