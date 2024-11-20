@@ -2,7 +2,7 @@
 
 ### Rafael kauati - 105925
 ### Vasco Vouzela - 108130
-### Alírio Rego   - mete o teu nmec ca
+### Alírio Rego   - 
 
 # Major features implemented for this delivery :
 * Confidentiality over the requests made to the server, performed by a hybrid encryption where the content of the request is firstly encrypted with a symmetric key and the symmetric key is sent it ciphred by the a public key of a key pair of the server (only the server can decrypt the content) 
