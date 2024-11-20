@@ -91,7 +91,7 @@ bash rep_add_doc "session_file" "test" "./test"
 ```
 <hr>
 
-To list files from an organization of the session key :
+To list files from an organization of the session key (this command still support others arguments, like username or data, to fetch document) :
 ```bash
 bash rep_list_docs "session_file"
 ```
