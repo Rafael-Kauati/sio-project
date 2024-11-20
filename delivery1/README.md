@@ -29,7 +29,7 @@ docker-compose up
 . venv-and-install.sh
 ```
 
-### Then you can run the flask app with run-flask-app.sh file at the delivery1/repo-app/
+### Then you can run the flask app with run-flask-app.sh file at the delivery1/repo-app/, this script also set the env vars to be used by the client, regarding the public key and server address
 
 ```bash
 . run-flask-app.sh
