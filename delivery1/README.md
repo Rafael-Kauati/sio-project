@@ -42,6 +42,11 @@ docker-compose up
 source venv/bin/activate
 ```
 
+### Run the script to start the var env to be used in the client: 
+```bash
+. env-vars-init.sh
+```
+
 ### Commands of the client (run at the delivery1/repo-app/cmd-client)
 #### Note : all of these commands are also in delivery1/repo-app/cmd-client/commands.txt file
 
