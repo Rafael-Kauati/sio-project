@@ -56,7 +56,7 @@ bash rep_subject_credentials "password" "credentials"
 ```
 <hr>
 
-To create a new organization :
+To create a new organization (this command assumes that the credentials are stored as a json content) :
 ```bash
 bash rep_create_org "Org4" "anon3" "anon3" "anon3@example.com" "credentials"  
 ```
@@ -68,7 +68,7 @@ bash rep_list_orgs
 ```
 <hr>
 
-To create a new session in that organization :
+To create a new session in that organization (this command assumes that the credentials are stored as a json content) :
 ```bash
 
 bash rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_file" 
@@ -76,7 +76,7 @@ bash rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_fil
 <hr>
 
 
-To create a new subject :
+To create a new subject (this command assumes that the credentials are stored as a json content) :
 ```bash
 bash rep_subject_credentials "password2" "credentials"
 bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"

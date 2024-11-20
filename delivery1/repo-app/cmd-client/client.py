@@ -223,8 +223,8 @@ def add_subject(data, session_file):
         session_key = session_data["session_context"]["session_key"].encode('utf-8')  # Garantir que está como bytes
 
     # Carrega as credenciais do arquivo
-    with open(data['credentials_file'], 'r') as cred_file:
-        credentials = json.load(cred_file)
+    '''with open(data['credentials_file'], 'r') as cred_file:
+        credentials = json.load(cred_file)'''
 
     # Gerar chave e nonce ChaCha20
     chacha_key = os.urandom(32)  # 32 bytes para a chave
@@ -235,8 +235,8 @@ def add_subject(data, session_file):
         "username": data['username'],
         "name": data['name'],
         "email": data['email'],
-        "public_key": credentials.get("public_key"),
-        "credentials": credentials
+        #"public_key": credentials.get("public_key"),
+        #"credentials": credentials
     }
     payload_json = json.dumps(payload)  # Serializa e converte para bytes
     encrypted_payload = encrypt_with_chacha20(chacha_key, chacha_nonce, payload_json)
