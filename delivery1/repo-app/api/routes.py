@@ -63,15 +63,15 @@ def download_file(file_handle):
     encrypted_nonce = binascii.unhexlify(key_info["nonce"])
     chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
     chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
-    encrypted_nonce_header = request.headers.get("X-Nonce")
+    '''encrypted_nonce_header = request.headers.get("X-Nonce")
     if not encrypted_nonce_header:
         return jsonify({"error": "X-Nonce header is missing"}), 400
     encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
     nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
-    print(nonce_header)
+    print(nonce_header)'''
     file_handle = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(file_handle)).decode('utf-8')
 
-    response, status_code = DocumentController.download_document(file_handle, nonce_header)
+    response, status_code = DocumentController.download_document(file_handle)
 
     # Caso o método retorne a chave do arquivo, faz o envio do arquivo também
     if status_code == 200:
@@ -118,7 +118,7 @@ def list_session_roles_route(session_key):
 def get_subjects_by_session_key_route():
     # Obtém a session_key e o nonce dos cabeçalhos da requisição
     session_key = request.headers.get('X-Session-Key')
-    nonce = request.headers.get('X-Nonce')
+    #nonce = request.headers.get('X-Nonce')
     encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
     if not encrypted_key_info:
         return jsonify({"error": "Encrypted key info is missing"}), 400
@@ -133,24 +133,24 @@ def get_subjects_by_session_key_route():
     chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
     # Descriptografar o nonce do cabeçalho
-    encrypted_nonce_header = request.headers.get("X-Nonce")
+    '''encrypted_nonce_header = request.headers.get("X-Nonce")
     if not encrypted_nonce_header:
         return jsonify({"error": "X-Nonce header is missing"}), 400
     encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
     nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
-    print(nonce_header)
+    print(nonce_header)'''
 
     encrypted_session_key = request.headers.get("X-Session-Key")
     session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode('utf-8')
 
-    if not encrypted_session_key or not nonce_header:
+    if not encrypted_session_key :
         # Retorna um erro se os cabeçalhos não estiverem presentes
-        return jsonify({"error": "Missing 'X-Session-Key' or 'X-Nonce' header"}), 400
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
 
-    logger.info(f"Request to get subjects by session key: {session_key} and nonce: {nonce}")
+    logger.info(f"Request to get subjects by session key: {session_key} ")
 
     # Chama o controlador para processar a lógica
-    return SessionController.get_subjects_by_session_key(session_key, nonce_header)
+    return SessionController.get_subjects_by_session_key(session_key)
 
 
 
@@ -305,12 +305,12 @@ def add_document_route():
 
     # Chama o controller para fazer o processamento e salvar o documento
     logger.info(f"Adding document to organization with session key: {session_key} and document name: {file_name}")
-    result = SessionController.upload_document_to_organization(
+    result, status = SessionController.upload_document_to_organization(
         session_key, nonce,file_name, file, file_handle, file_encryption_key, encryption_vars
     )
 
     # Retorna o resultado conforme o sucesso ou falha
-    return jsonify(result)
+    return jsonify(result), status
 
 
 
@@ -320,7 +320,7 @@ def add_document_route():
 def get_document_metadata_route():
     # Recebe a session_key do cabeçalho HTTP
     session_key = request.headers.get('X-Session-Key')  # Obtém session_key dos cabeçalhos
-    nonce = request.headers.get("X-Nonce")
+    #nonce = request.headers.get("X-Nonce")
     document_name = request.args.get('document_name')  # Obtém o document_name dos parâmetros de consulta
     print("enc doc name : ",document_name)
     if not document_name:
@@ -345,17 +345,17 @@ def get_document_metadata_route():
     chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
     # Descriptografar o nonce do cabeçalho `X-Nonce`
-    encrypted_nonce_header = request.headers.get("X-Nonce")
+    '''encrypted_nonce_header = request.headers.get("X-Nonce")
     if not encrypted_nonce_header:
         return jsonify({"error": "X-Nonce header is missing"}), 400
     encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
     nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
-    print(nonce_header)
+    print(nonce_header)'''
     session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(session_key)).decode('utf-8')
     document_name = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(document_name)).decode('utf-8')
     print("decrypted doc name : ",document_name)
     logger.info(f"Requesting document metadata for session key: {session_key} and document name: {document_name}")
-    result = SessionController.get_document_metadata(session_key, nonce,document_name)
+    result = SessionController.get_document_metadata(session_key, document_name)
     return result
 
 
@@ -398,6 +398,6 @@ def delete_document_route(document_name):
     document_name = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_doc_name)).decode('utf-8')
 
     logger.info(f"Request to delete document: {document_name} in session: {session_key}")
-    result = SessionController.delete_document_from_organization(session_key,nonce_header, document_name)
-    return result
+    result, status = SessionController.delete_document_from_organization(session_key,nonce_header, document_name)
+    return jsonify(result), status
 

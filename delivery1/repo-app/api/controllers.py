@@ -2,6 +2,7 @@ import base64
 import binascii
 import hashlib
 import json
+import random
 import secrets
 import string
 
@@ -84,15 +85,15 @@ class DocumentController:
 
 
     @staticmethod
-    def download_document(file_handle, nonce):
-        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+    def download_document(file_handle):
+        '''existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
         else:
             # Se o nonce não existe, insira-o na tabela
             new_nonce = Nonce(nonce=nonce)
             db.session.add(new_nonce)
-            db.session.commit()
+            db.session.commit()'''
         # Busca o documento no banco de dados
         document = Document.query.filter_by(file_handle=file_handle).first()
         print(f"\nfile fetched : {document.name}")
@@ -170,7 +171,7 @@ class OrganizationController:
             chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
             # Descriptografar o nonce do cabeçalho `X-Nonce`
-            encrypted_nonce_header = request.headers.get("X-Nonce")
+            '''encrypted_nonce_header = request.headers.get("X-Nonce")
             if not encrypted_nonce_header:
                 return jsonify({"error": "X-Nonce header is missing"}), 400
             encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
@@ -185,7 +186,7 @@ class OrganizationController:
                 new_nonce = Nonce(nonce=nonce_header)
 
                 db.session.add(new_nonce)
-                db.session.commit()
+                db.session.commit()'''
 
             # Descriptografar o payload da requisição
             encrypted_payload = request.json.get("encrypted_payload")
@@ -253,23 +254,36 @@ class SessionController:
             return {"error": "Sessão inválida ou não encontrada"}, 404
 
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
-        if existing_nonce:
+        if not existing_nonce:
+            return jsonify({"error": "Nonce inválido ou não encontrado."}), 400
+
+        if existing_nonce.used:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
-        else:
-            # Se o nonce não existe, insira-o na tabela
-            new_nonce = Nonce(nonce=nonce)
-            db.session.add(new_nonce)
-            db.session.commit()
+
+        # Marcar o nonce como usado
+        existing_nonce.used = True
+        db.session.commit()
+
+        # Gerar um novo nonce exclusivo
+        new_nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        while Nonce.query.filter_by(nonce=new_nonce).first():
+            new_nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Salvar o novo nonce
+        new_nonce_entry = Nonce(nonce=new_nonce, used=False)
+        db.session.add(new_nonce_entry)
+        db.session.commit()
 
         # Obter a organização associada à sessão
         organization = session.organization
         if not organization:
-            return {"success": False, "message": "No organization associated with this session"}, 404
+            return {"success": False, "message": "No organization associated with this session",
+                 "new_nonce": new_nonce}, 404
 
         # Obter o subject associado à sessão
         subject = session.subject
         if not subject:
-            return {"success": False, "message": "No subject associated with this session"}, 404
+            return {"success": False, "message": "No subject associated with this session", "new_nonce": new_nonce}, 404
 
         # Buscar o documento na base de dados
         document = db.session.query(Document).filter_by(
@@ -277,7 +291,8 @@ class SessionController:
         ).first()
 
         if not document:
-            return {"success": False, "message": "Document not found"}, 404
+            return {"success": False, "message": "Document not found",
+                 "new_nonce": new_nonce}, 404
 
         # Verificar se os dados de criptografia estão presentes
         encrypted_file_key = document.encrypted_file_key
@@ -286,7 +301,8 @@ class SessionController:
         ephemeral_public_key = document.ephemeral_public_key
 
         if not encrypted_file_key or not iv or not tag or not ephemeral_public_key:
-            return {'error': 'Cryptography data not found for this document'}, 404
+            return {'error': 'Cryptography data not found for this document',
+                 "new_nonce": new_nonce}, 404
 
         # Descriptografar a chave do arquivo
         try:
@@ -310,20 +326,21 @@ class SessionController:
                 "document name": document.name,
                 "file_key": decrypted_file_key.hex(),
                 "file_handle": file_handle,
-                "encryption_metadata" : encryption_metadata
+                "encryption_metadata" : encryption_metadata,
+                 "new_nonce": new_nonce
             }, 200
         except Exception as e:
             db.session.rollback()
             return {"success": False, "message": f"Failed to update document: {str(e)}"}, 500
 
     @staticmethod
-    def get_document_metadata(session_key, nonce,document_name):
+    def get_document_metadata(session_key,document_name):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
-        # Verifica se o nonce já foi usado para a sessão
+        '''# Verifica se o nonce já foi usado para a sessão
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
@@ -331,7 +348,7 @@ class SessionController:
             # Se o nonce não existe, insira-o na tabela
             new_nonce = Nonce(nonce=nonce)
             db.session.add(new_nonce)
-            db.session.commit()
+            db.session.commit()'''
 
         organization = session.organization
 
@@ -392,13 +409,25 @@ class SessionController:
             return {"error": "Sessão inválida ou não encontrada"}, 404
 
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
-        if existing_nonce:
+        if not existing_nonce:
+            return jsonify({"error": "Nonce inválido ou não encontrado."}), 400
+
+        if existing_nonce.used:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
-        else:
-            # Se o nonce não existe, insira-o na tabela
-            new_nonce = Nonce(nonce=nonce)
-            db.session.add(new_nonce)
-            db.session.commit()
+
+        # Marcar o nonce como usado
+        existing_nonce.used = True
+        db.session.commit()
+
+        # Gerar um novo nonce exclusivo
+        new_nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        while Nonce.query.filter_by(nonce=new_nonce).first():
+            new_nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Salvar o novo nonce
+        new_nonce_entry = Nonce(nonce=new_nonce, used=False)
+        db.session.add(new_nonce_entry)
+        db.session.commit()
 
         organization = session.organization
         subject = session.subject
@@ -447,28 +476,43 @@ class SessionController:
         db.session.add(new_document)
         db.session.commit()
 
-        return {"message": "Documento adicionado com sucesso", "document_id": new_document.id}, 201
+        return {"message": "Documento adicionado com sucesso",
+                "document_id": new_document.id , "new_nonce": new_nonce}, 201
 
     @staticmethod
     def add_subject_to_organization(session_key, nonce, username, name, email):
+
+
+        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if not existing_nonce:
+            return jsonify({"error": "Nonce inválido ou não encontrado."}), 400
+
+        if existing_nonce.used:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+
+        # Marcar o nonce como usado
+        existing_nonce.used = True
+        db.session.commit()
+
+        # Gerar um novo nonce exclusivo
+        new_nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        while Nonce.query.filter_by(nonce=new_nonce).first():
+            new_nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Salvar o novo nonce
+        new_nonce_entry = Nonce(nonce=new_nonce, used=False)
+        db.session.add(new_nonce_entry)
+        db.session.commit()
+
         session = check_session(session_key)
         if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
-
-        # Validação do nonce
-        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
-        if existing_nonce:
-            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
-        else:
-            # Se o nonce não existe, insira-o na tabela
-            new_nonce = Nonce(nonce=nonce)
-            db.session.add(new_nonce)
-            db.session.commit()
+            return {"error": "Sessão inválida ou não encontrada", "new_nonce": new_nonce}, 404
 
         # Verificar organização associada à sessão
         organization = session.organization
         if not organization:
-            return {"error": "Organização associada à sessão não encontrada."}, 404
+            return {"error": "Organização associada à sessão não encontrada."
+                    , "new_nonce": new_nonce}, 404
         print(f"Username: {username}, Name: {name}, Email: {email}")
         # Verificar se o username já existe na organização
         existing_subject = db.session.query(Subject).join(subject_organization).filter(
@@ -477,7 +521,8 @@ class SessionController:
         ).first()
         if existing_subject:
             print(f"Existing subject: {existing_subject}")
-            return {"error": "Um usuário com esse username já existe nesta organização."}, 400
+            return {"error": "Um usuário com esse username já existe nesta organização."
+                    , "new_nonce": new_nonce}, 400
 
         # Criar novo Subject e associá-lo à organização
         new_subject = Subject(
@@ -495,7 +540,8 @@ class SessionController:
             db.session.add(new_subject)
             db.session.commit()
 
-            return {"id": new_subject.id, "message": "Sujeito adicionado com sucesso."}, 201
+            return {"id": new_subject.id, "message": "Sujeito adicionado com sucesso."
+                    , "new_nonce": new_nonce}, 201
         except Exception as e:
             db.session.rollback()
             return {"error": f"Ocorreu um erro ao adicionar o sujeito: {str(e)}"}, 500
@@ -520,7 +566,7 @@ class SessionController:
         } for role in roles]), 200
 
     @staticmethod
-    def get_subjects_by_session_key(session_key, nonce):
+    def get_subjects_by_session_key(session_key):
         """
         Obtém os subjects associados à organização da sessão após validar o nonce.
         """
@@ -530,14 +576,14 @@ class SessionController:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
         # Verifica se o nonce já foi usado
-        existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        '''existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if existing_nonce:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
         else:
             # Insere o nonce na tabela
             new_nonce = Nonce(nonce=nonce)
             db.session.add(new_nonce)
-            db.session.commit()
+            db.session.commit()'''
 
         # Obtém a organização associada à sessão
         organization = session.organization
@@ -579,6 +625,7 @@ class SessionController:
         chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
         chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
+        '''
         # Descriptografar o nonce do cabeçalho `X-Nonce`
         encrypted_nonce_header = request.headers.get("X-Nonce")
         if not encrypted_nonce_header:
@@ -596,8 +643,8 @@ class SessionController:
 
             db.session.add(new_nonce)
             db.session.commit()
-
-            # Descriptografar o payload da requisição
+            '''
+        # Descriptografar o payload da requisição
         encrypted_payload = request.json.get("encrypted_payload")
         if not encrypted_payload:
             return jsonify({"error": "Encrypted payload is missing"}), 400
@@ -630,6 +677,18 @@ class SessionController:
         db.session.add(new_session)
         db.session.commit()
 
+        # Gerar um nonce exclusivo
+        nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Verificar se já existe um nonce idêntico
+        while Nonce.query.filter_by(nonce=nonce).first():
+            nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Criar e salvar o nonce
+        new_nonce = Nonce(nonce=nonce, used=False)
+        db.session.add(new_nonce)
+        db.session.commit()
+
         # Retorna o contexto da sessão criada
         return jsonify({
             'message': 'Session created successfully',
@@ -638,6 +697,7 @@ class SessionController:
                 'organization_name': organization.name,
                 'subject_username': subject.username,
                 'session_key': new_session.session_key,  # Retorna a chave gerada
+                'nonce': nonce
             }
         }), 201
 

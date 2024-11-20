@@ -44,12 +44,12 @@ def generate_chacha20_key_and_nonce():
 
 def list_organizations():
     url = f"http://{state['REP_ADDRESS']}/organizations"
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    '''nonce = str(uuid.uuid4())  # Exemplo de nonce único
     headers = {
 
         "X-Nonce": nonce
-    }
-    response = requests.get(url, headers=headers)
+    }'''
+    response = requests.get(url)
     print(response.content)
     if response.status_code == 200:
         logger.info("Organizations listed successfully.")
@@ -97,15 +97,15 @@ def create_organization(data):
         encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
 
         # Prepare the JSON for the headers
-        nonce_header = str(uuid.uuid4())
-        encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+        '''nonce_header = str(uuid.uuid4())
+        encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)'''
 
         encryption_header = {
             "key": encrypted_key.hex(),
             "nonce": encrypted_nonce.hex()
         }
         headers = {
-            "X-Nonce": encrypted_nonce_header.hex(),
+            #"X-Nonce": encrypted_nonce_header.hex(),
             "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
         }
 
@@ -152,11 +152,7 @@ def create_session(data, session_file):
 
     # Envia o payload para criar uma sessão
     url = f"http://{state['REP_ADDRESS']}/sessions"
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
-    headers = {
 
-        "X-Nonce": nonce
-    }
 
     key = os.urandom(32)
     nonce = os.urandom(16)
@@ -169,15 +165,14 @@ def create_session(data, session_file):
     encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
 
     # Prepare the JSON for the headers
-    nonce_header = str(uuid.uuid4())
-    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+
 
     encryption_header = {
         "key": encrypted_key.hex(),
         "nonce": encrypted_nonce.hex()
     }
     headers = {
-        "X-Nonce": encrypted_nonce_header.hex(),
+        #"X-Nonce": encrypted_nonce_header.hex(),
         "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
     }
 
@@ -223,8 +218,8 @@ def add_subject(data, session_file):
     url = f"http://{state['REP_ADDRESS']}/add_subject"
 
     # Carrega o arquivo de sessão para obter a session_key
-    with open(session_file, 'r') as session_file:
-        session_data = json.load(session_file)
+    with open(session_file, 'r') as session_file_handle:
+        session_data = json.load(session_file_handle)
         session_key = session_data["session_context"]["session_key"].encode('utf-8')  # Garantir que está como bytes
 
     # Carrega as credenciais do arquivo
@@ -243,7 +238,7 @@ def add_subject(data, session_file):
         "public_key": credentials.get("public_key"),
         "credentials": credentials
     }
-    payload_json = json.dumps(payload) # Serializa e converte para bytes
+    payload_json = json.dumps(payload)  # Serializa e converte para bytes
     encrypted_payload = encrypt_with_chacha20(chacha_key, chacha_nonce, payload_json)
 
     # Criptografar o session_key com ChaCha20
@@ -255,7 +250,7 @@ def add_subject(data, session_file):
     encrypted_nonce = encrypt_with_public_key(public_key_path, chacha_nonce)
 
     # Gerar um nonce único para o cabeçalho
-    nonce_header = str(uuid.uuid4())
+    nonce_header = session_data["session_context"]["nonce"].encode('utf-8')
 
     # Define os cabeçalhos para incluir a session_key e o nonce
     headers = {
@@ -267,6 +262,17 @@ def add_subject(data, session_file):
 
     # Faz a requisição POST com os cabeçalhos e o payload criptografado
     response = requests.post(url, data=binascii.hexlify(encrypted_payload), headers=headers)
+
+    # Atualiza o nonce no arquivo de sessão com o new_nonce retornado
+    response_data = response.json()
+    print(response_data)
+    new_nonce = response_data.get("new_nonce")
+
+    if new_nonce:
+        session_data["session_context"]["nonce"] = new_nonce
+        with open(session_file, 'w') as session_file_handle:
+            json.dump(session_data, session_file_handle, indent=4)
+
     return response
 
 
@@ -292,13 +298,13 @@ def get_document_metadata(session_file, document_name):
         "nonce": encrypted_nonce.hex()
     }
     # Prepare the JSON for the headers
-    nonce_header = str(uuid.uuid4())
-    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    '''nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)'''
     session_key = encrypt_with_chacha20(key, nonce, session_key)
 
     headers = {
         "X-Session-Key": binascii.hexlify(session_key).decode(),
-        "X-Nonce": encrypted_nonce_header.hex(),
+        #"X-Nonce": encrypted_nonce_header.hex(),
         "X-Encrypted-Key-Info": json.dumps(encryption_header)
     }
     document_name = encrypt_with_chacha20(key, nonce,
@@ -354,8 +360,8 @@ def download_document(file_handle, file=None):
     public_key_path = state['REP_PUB_KEY']
     encrypted_key = encrypt_with_public_key(public_key_path, key)
     encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
-    nonce_header = str(uuid.uuid4())  # Exemplo de nonce único
-    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    #nonce_header = session_data["session_context"]["nonce"].encode('utf-8')  # Exemplo de nonce único
+    #encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
     encrypted_fh = encrypt_with_chacha20(key, nonce, file_handle)
     url = f"http://{state['REP_ADDRESS']}/download/{encrypted_fh.hex()}"
 
@@ -364,7 +370,7 @@ def download_document(file_handle, file=None):
         "nonce": encrypted_nonce.hex()
     }
     headers = {
-        "X-Nonce": encrypted_nonce_header.hex(),
+        #"X-Nonce": encrypted_nonce_header.hex(),
         "X-Encrypted-Key-Info": json.dumps(encryption_header)
     }
     response = requests.get(url, headers=headers)
@@ -509,7 +515,7 @@ def upload_document(data):
     }
 
     # Define os cabeçalhos para enviar a session_key
-    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    nonce = session_data["session_context"]["nonce"].encode('utf-8')
     headers = {
         "X-Session-Key": session_key,
         "X-Nonce": nonce
@@ -528,7 +534,21 @@ def upload_document(data):
         headers=headers  # Inclui os cabeçalhos com a session_key
     )
 
-    return response
+    if response.status_code == 201 or response.status_code == 200:
+        # Atualiza o nonce no arquivo de sessão com o new_nonce retornado
+        response_data = response.json()
+        #print(response_data)
+
+        new_nonce = response_data.get("new_nonce")
+
+        if new_nonce:
+            session_data["session_context"]["nonce"] = new_nonce
+            with open(data['session_file'], 'w') as session_file_handle:
+                json.dump(session_data, session_file_handle, indent=4)
+    else:
+        return 1
+
+    return 0
 
 
 def get_documents(data):
@@ -580,8 +600,8 @@ def get_documents(data):
 
 def delete_document(session_file, document_name):
     # Carrega o arquivo de sessão para obter o session_key
-    with open(session_file, 'r') as session_file:
-        session_data = json.load(session_file)
+    with open(session_file, 'r') as session_file_handle:
+        session_data = json.load(session_file_handle)
         session_key = session_data["session_context"]["session_key"]
 
     # URL do endpoint para deletar o documento
@@ -590,7 +610,7 @@ def delete_document(session_file, document_name):
     key = os.urandom(32)
     nonce = os.urandom(16)
 
-    nonce_header = str(uuid.uuid4())
+    nonce_header = session_data["session_context"]["nonce"].encode('utf-8')
     encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
     encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
 
@@ -615,10 +635,18 @@ def delete_document(session_file, document_name):
     # Enviar requisição DELETE para o endpoint de deletar o documento
     response = requests.delete(url, headers=headers)
 
-    return response.json()
+    response_data = response.json()
+    print(response_data)
+    new_nonce = response_data.get("new_nonce")
+
+    if new_nonce:
+        session_data["session_context"]["nonce"] = new_nonce
+        with open(session_file, 'w') as session_file_handle:
+            json.dump(session_data, session_file_handle, indent=4)
+
+    return response
 
 
-import uuid
 
 
 def list_subjects(session_file, username=None):
@@ -642,8 +670,8 @@ def list_subjects(session_file, username=None):
     encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
 
     # Prepare the JSON for the headers
-    nonce_header = str(uuid.uuid4())
-    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    #nonce_header = str(uuid.uuid4())
+    #encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
     encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
 
     encryption_header = {
@@ -651,7 +679,7 @@ def list_subjects(session_file, username=None):
         "nonce": encrypted_nonce.hex()
     }
     headers = {
-        "X-Nonce": encrypted_nonce_header.hex(),
+        #"X-Nonce": encrypted_nonce_header.hex(),
         "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
         "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
     }

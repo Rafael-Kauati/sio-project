@@ -1,9 +1,10 @@
 {
     "message": "Session created successfully",
     "session_context": {
+        "nonce": "OmnEEGvyqnlv7UajjaJfUCDDSQ3rbITv",
         "organization_name": "Org4",
-        "session_id": 1,
-        "session_key": "XNxEex9cABpwFhSGKzVNjrhnDeDIuyOZ",
-        "subject_username": "anon3"
+        "session_id": 2,
+        "session_key": "5RUNjGRwt5yYJRAh7TFNdOxSNGG5kSDt",
+        "subject_username": "gabs"
     }
 }
