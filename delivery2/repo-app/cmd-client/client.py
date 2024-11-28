@@ -6,7 +6,7 @@ import sys
 import argparse
 import logging
 import json
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, ec
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives import serialization, hashes
@@ -694,52 +694,40 @@ def list_subjects(session_file, username=None):
 
 
 def gen_subject_file(password, credentials_file):
-    # Generate RSA private/public key pair
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=1048,
-        backend=default_backend()
-    )
-    public_key = private_key.public_key()
-
-    # Serialize the public key to PEM format
-    public_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode('utf-8')  # Decode to string for JSON storage
-
-    # Encrypt the private key
+    # Derive a seed from the password
     salt = os.urandom(16)  # Random salt for key derivation
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
-        length=32,
+        length=32,  # Length of the derived seed
         salt=salt,
         iterations=100_000,
-        backend=default_backend()
     )
-    key = kdf.derive(password.encode())
+    seed = kdf.derive(password.encode())  # Generate seed from password
 
-    # AES encryption of the private key
-    iv = os.urandom(16)
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-    encryptor = cipher.encryptor()
+    # Use the seed to generate an ECC private key deterministically
+    private_key = ec.derive_private_key(int.from_bytes(seed, byteorder="big"), ec.SECP256R1())
+    public_key = private_key.public_key()
 
+    # Serialize keys
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-    encrypted_private_key = encryptor.update(private_pem) + encryptor.finalize()
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode('utf-8')
 
-    # Save the public key in JSON format and encrypted private key in the same file
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode('utf-8')
+
+    # Save the keys and salt in a JSON file
     credentials_data = {
         "public_key": public_pem,
-        "salt": salt.hex(),
-        "iv": iv.hex(),
-        "encrypted_private_key": encrypted_private_key.hex()
+        "private_key": private_pem,
+        "salt": salt.hex(),  # Save salt for future regeneration of keys
     }
 
-    with open(f"{credentials_file}", "w") as cred_file:
+    with open(credentials_file, "w") as cred_file:
         json.dump(credentials_data, cred_file, indent=4)
 
     print("Keys generated and saved in JSON format.")
