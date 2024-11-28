@@ -484,7 +484,7 @@ class SessionController:
                 "document_id": new_document.id , "new_nonce": new_nonce}, 201
 
     @staticmethod
-    def add_subject_to_organization(session_key, nonce, username, name, email):
+    def add_subject_to_organization(session_key, nonce, username, name, email, public_key):
 
 
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
@@ -533,7 +533,7 @@ class SessionController:
             username=username,
             full_name=name,
             email=email,
-            #public_key=public_key
+            public_key=public_key
         )
 
         try:
@@ -649,7 +649,6 @@ class SessionController:
         subject = Subject.query.filter_by(username=data.get("username")).first()
         if not subject:
             return jsonify({"error": "Subject not found"}), 404
-
         # Verify the signature
         try:
             public_key_pem = subject.public_key.encode()
