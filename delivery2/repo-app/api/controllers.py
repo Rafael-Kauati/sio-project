@@ -198,15 +198,17 @@ class OrganizationController:
 
             # Extrair dados do payload
             org_name = payload_data.get("name")
-            print(org_name)
+            #print(org_name)
             subject_data = payload_data.get("subject")
+            #print(payload_data.get("public_key"))
+            public_key = payload_data.get("public_key")
+            if not org_name or not subject_data or not public_key:
+                return jsonify({'error': f'Organization name, subject and subject public data are required {payload_data}'}), 400
 
-            if not org_name or not subject_data:
-                return jsonify({'error': 'Organization name and subject data are required'}), 400
 
             # Extrair dados do sujeito
             username = subject_data.get("username")
-            print(username)
+            #print(username)
             full_name = subject_data.get("full_name")
             email = subject_data.get("email")
 
@@ -218,7 +220,8 @@ class OrganizationController:
             subject = Subject(
                 username=username,
                 full_name=full_name,
-                email=email
+                email=email,
+                public_key=public_key
             )
 
             # Adicionar sujeito à organização
