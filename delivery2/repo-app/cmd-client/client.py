@@ -80,32 +80,37 @@ def create_organization(data):
         key = os.urandom(32)
         nonce = os.urandom(16)
 
-        # Prepare payload
+        # Load the JSON content of the public key file
+        with open(data['public_key_file'], 'r') as pub_key_file:
+            key_data = json.load(pub_key_file)  # Parse JSON content
+            public_key_content = key_data.get("public_key")  # Extract the public key
+
+        if not public_key_content:
+            raise ValueError("The public key is missing in the provided file.")
+
+        # Prepare the payload
         payload = {
             "name": data['name'],
             "subject": {
                 "username": data['username'],
                 "full_name": data['full_name'],
                 "email": data['email']
-            }
+            },
+            "public_key": public_key_content  # Include the public key in the payload
         }
         encrypted_payload = encrypt_with_chacha20(key, nonce, json.dumps(payload))
 
-        # Encrypt ChaCha20 key and nonce with the public key
+        # Encrypt ChaCha20 key and nonce with the representative's public key
         public_key_path = state['REP_PUB_KEY']
         encrypted_key = encrypt_with_public_key(public_key_path, key)
         encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
 
         # Prepare the JSON for the headers
-        '''nonce_header = str(uuid.uuid4())
-        encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)'''
-
         encryption_header = {
             "key": encrypted_key.hex(),
             "nonce": encrypted_nonce.hex()
         }
         headers = {
-            #"X-Nonce": encrypted_nonce_header.hex(),
             "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
         }
 
@@ -130,6 +135,7 @@ def create_organization(data):
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         return {"status": "error", "message": str(e)}
+
 
 
 def create_session(data, session_file):
@@ -944,7 +950,7 @@ elif args.command == "rep_create_org":
         "email": command_args.email,
         "public_key_file": command_args.public_key_file
     }
-    create_organization(data)
+    print(create_organization(data))
 
 if args.command == "rep_add_subject":
     data = {
