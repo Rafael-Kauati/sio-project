@@ -310,7 +310,7 @@ def add_document_route():
     )
 
     # Retorna o resultado conforme o sucesso ou falha
-    return jsonify(result), status
+    return result, status
 
 
 

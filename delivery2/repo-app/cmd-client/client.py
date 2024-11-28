@@ -2,6 +2,8 @@ import base64
 import binascii
 import hashlib
 import os
+import random
+import string
 import sys
 import argparse
 import logging
@@ -137,7 +139,7 @@ def create_organization(data):
         return {"status": "error", "message": str(e)}
 
 
-
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 def create_session(data, session_file):
     """
     Cria uma sessão e criptografa a chave de sessão com uma chave pública RSA.
@@ -145,15 +147,41 @@ def create_session(data, session_file):
     import json
     import requests
 
-    # Lê as credenciais do arquivo especificado
     with open(data['credentials_file'], 'r') as cred_file:
-        credentials = json.load(cred_file)
+        credentials = json.load(cred_file)  # Parse JSON content
+        private_key_pem = credentials.get("private_key")  # Extract the private key
 
+        if not private_key_pem:
+            raise ValueError("Private key is missing in the credentials file.")
+
+        # Load the private key
+        private_key = load_pem_private_key(
+            private_key_pem.encode(),
+            password=None,  # No password encryption for the key in this example
+            backend=default_backend()
+        )
+
+    # Generate a random nonce
+    nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+    #print(nonce)
+    # Sign the nonce with the private key
+    signature = private_key.sign(
+        nonce.encode(),  # Encode the nonce as bytes
+        ec.ECDSA(hashes.SHA256())  # Use ECDSA with SHA256 for signing
+    )
+
+    # Print the signed nonce in a readable format (e.g., hex)
+    signed_nonce = signature.hex()
+    print(f"\nSigned nonce: {signed_nonce}")
+
+    # Prepare the payload
     payload = {
         "username": data['username'],
         "organization_name": data['organization'],
         "password": data['password'],
-        "credentials": credentials
+        "credentials": credentials,
+        "nonce": nonce,
+        "signed_nonce": signed_nonce
     }
 
     # Envia o payload para criar uma sessão
@@ -205,7 +233,7 @@ def create_session(data, session_file):
         return 0
     else:
         # Caso falhe na criação da sessão
-        print(f"Failed to create session: {response.status_code}")
+        print(f"Failed to create session: {response.json()}{response.status_code}")
         return 1
 
 
@@ -554,6 +582,7 @@ def upload_document(data):
             with open(data['session_file'], 'w') as session_file_handle:
                 json.dump(session_data, session_file_handle, indent=4)
     else:
+        print(response.json())
         return 1
 
     return 0

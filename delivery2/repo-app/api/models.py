@@ -47,7 +47,7 @@ class Subject(db.Model):
 
     # Relação com Organization via tabela associativa
     organizations = db.relationship('Organization', secondary=subject_organization, back_populates='subjects')
-
+    authentication_ids = db.relationship('AuthenticationID', back_populates='subject', cascade="all, delete-orphan")
 
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -58,7 +58,17 @@ class Organization(db.Model):
     # Relação com Subject via tabela associativa
     subjects = db.relationship('Subject', secondary=subject_organization, back_populates='organizations')
 
+class AuthenticationID(db.Model):
+    __tablename__ = "authentication_id"
+    id = db.Column(db.Integer, primary_key=True)
+    nonce = db.Column(db.String(128), unique=True, nullable=False)  # Nonce must be unique
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
+    # Foreign key to reference Subject
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+
+    # Relationship back to Subject
+    subject = db.relationship('Subject', back_populates='authentication_ids')
 
 class Session(db.Model):
     __tablename__ = "session"
@@ -80,6 +90,7 @@ class Nonce(db.Model):
     nonce = db.Column(db.String(128), unique=True, nullable=False)  # Nonce deve ser único
     used = db.Column(db.Boolean, default=False, nullable=False)  # Novo campo
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
 
 class Role(db.Model):

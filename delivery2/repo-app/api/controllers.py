@@ -7,8 +7,9 @@ import secrets
 import string
 
 from cryptography.exceptions import InvalidKey
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import jsonify, abort
-from api.models import db, Document, Organization, Session, Subject, Role, Nonce, subject_organization
+from api.models import db, Document,AuthenticationID, Organization, Session, Subject, Role, Nonce, subject_organization
 from werkzeug.utils import secure_filename
 from .utils import *
 from . import app  
@@ -617,63 +618,74 @@ class SessionController:
     def create_session():
         data = request.json
 
+        # Extract encrypted key info
         encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
         if not encrypted_key_info:
             return jsonify({"error": "Encrypted key info is missing"}), 400
         key_info = json.loads(encrypted_key_info)
         private_key_path = "private_key.pem"
 
+        # Decrypt the ChaCha20 key and nonce
         encrypted_key = binascii.unhexlify(key_info["key"])
         encrypted_nonce = binascii.unhexlify(key_info["nonce"])
         chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
         chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
-        '''
-        # Descriptografar o nonce do cabeçalho `X-Nonce`
-        encrypted_nonce_header = request.headers.get("X-Nonce")
-        if not encrypted_nonce_header:
-            return jsonify({"error": "X-Nonce header is missing"}), 400
-        encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
-        nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_nonce_header).decode('utf-8')
-        print(nonce_header)
-        # Validação do nonce (replay attack prevention)
-        existing_nonce = Nonce.query.filter_by(nonce=nonce_header).first()
-        if existing_nonce:
-            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
-        else:
-            # Salva o nonce na tabela
-            new_nonce = Nonce(nonce=nonce_header)
-
-            db.session.add(new_nonce)
-            db.session.commit()
-            '''
-        # Descriptografar o payload da requisição
+        # Decrypt the payload
         encrypted_payload = request.json.get("encrypted_payload")
         if not encrypted_payload:
             return jsonify({"error": "Encrypted payload is missing"}), 400
         encrypted_payload = binascii.unhexlify(encrypted_payload)
         decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_payload)
         data = json.loads(decrypted_payload)
-        # Busca a organização pelo nome
+
+        # Extract signed_nonce and nonce from the payload
+        signed_nonce = binascii.unhexlify(data.get("signed_nonce", ""))
+        nonce = data.get("nonce", "")
+        if not signed_nonce or not nonce:
+            return jsonify({"error": "Missing signed_nonce or nonce in the payload"}), 400
+
+        # Fetch the subject by username
+        subject = Subject.query.filter_by(username=data.get("username")).first()
+        if not subject:
+            return jsonify({"error": "Subject not found"}), 404
+
+        # Verify the signature
+        try:
+            public_key_pem = subject.public_key.encode()
+            public_key = load_pem_public_key(public_key_pem, backend=default_backend())
+
+            # Verify the signature
+            public_key.verify(
+                signed_nonce,  # Signature
+                nonce.encode(),  # Original data
+                ec.ECDSA(hashes.SHA256())  # Same algorithm used to sign
+            )
+        except Exception as e:
+            return jsonify({"error": f"Signature validation failed: {str(e)}"}), 400
+
+        # Check if an AuthenticationID with the same nonce exists
+        existing_auth_id = AuthenticationID.query.filter_by(nonce=nonce).join(Subject).filter(
+            Subject.username == subject.username).first()
+        if existing_auth_id:
+            return jsonify({"error": "Nonce already exists for this user"}), 400
+
+        new_auth_id = AuthenticationID(nonce=nonce, subject=subject)
+        db.session.add(new_auth_id)
+        db.session.commit()
+
+        # Proceed with session creation (existing code)
+        session_key = SessionController.generate_session_key(32)
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
-        # Busca o subject pelo username
-        subject = Subject.query.filter_by(username=data.get("username")).first()
-        if not subject:
-            abort(404, description="Subject not found")
-
-        # Gerar uma chave de sessão aleatória alfanumérica de 32 caracteres
-        session_key = SessionController.generate_session_key(32)
-
-        # Cria uma nova sessão
         new_session = Session(
-            session_key=session_key,  # Armazenar a chave diretamente sem codificar em base64
+            session_key=session_key,
             password=data.get("password"),
             credentials=data.get("credentials"),
-            organization_id=organization.id,  # Associa à organização encontrada
+            organization_id=organization.id,
             subject=subject
         )
 
@@ -692,14 +704,14 @@ class SessionController:
         db.session.add(new_nonce)
         db.session.commit()
 
-        # Retorna o contexto da sessão criada
+        # Return the session context
         return jsonify({
             'message': 'Session created successfully',
             'session_context': {
                 'session_id': new_session.id,
                 'organization_name': organization.name,
                 'subject_username': subject.username,
-                'session_key': new_session.session_key,  # Retorna a chave gerada
+                'session_key': new_session.session_key,
                 'nonce': nonce
             }
         }), 201
