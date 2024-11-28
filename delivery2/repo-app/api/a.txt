@@ -1,0 +1,137 @@
+nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+        "X-Session-Key": session_key,
+        "X-Nonce": nonce
+    }
+
+    url = f"http://{state['REP_ADDRESS']}/sessions"
+    nonce = str(uuid.uuid4())  # Exemplo de nonce único
+    headers = {
+
+        "X-Nonce": nonce
+    }
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    encrypted_payload = encrypt_with_chacha20(key, nonce, json.dumps(payload))
+
+    # Encrypt ChaCha20 key and nonce with the public key
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    nonce_header = str(uuid.uuid4())
+    encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    response = requests.post(url, json={"encrypted_payload": encrypted_payload.hex()}, headers=headers)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    nonce = request.headers.get("X-Nonce")
+existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
+        if existing_nonce:
+            return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+                else:
+            # Se o nonce não existe, insira-o na tabela
+            new_nonce = Nonce(nonce=nonce)
+            db.session.add(new_nonce)
+            db.session.commit()
+
+
+@staticmethod
+    def create_organization():
+        try:
+            # Extrair e descriptografar a chave ChaCha20 e o nonce do cabeçalho
+            encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+            if not encrypted_key_info:
+                return jsonify({"error": "Encrypted key info is missing"}), 400
+
+            key_info = json.loads(encrypted_key_info)
+            private_key_path = "private_key.pem"
+
+            # Descriptografar a chave ChaCha20 e o nonce
+            encrypted_key = binascii.unhexlify(key_info["key"])
+            encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+            chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+            chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+            # Descriptografar o nonce do cabeçalho `X-Nonce`
+            encrypted_nonce_header = request.headers.get("X-Nonce")
+            if not encrypted_nonce_header:
+                return jsonify({"error": "X-Nonce header is missing"}), 400
+            encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
+            nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce,encrypted_nonce_header).decode('utf-8')
+            print(nonce_header)
+            # Validação do nonce (replay attack prevention)
+            existing_nonce = Nonce.query.filter_by(nonce=nonce_header).first()
+            if existing_nonce:
+                return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
+            else:
+                # Salva o nonce na tabela
+                new_nonce = Nonce(nonce=nonce_header)
+
+                db.session.add(new_nonce)
+                db.session.commit()
+
+            # Descriptografar o payload da requisição
+            encrypted_payload = request.json.get("encrypted_payload")
+            if not encrypted_payload:
+                return jsonify({"error": "Encrypted payload is missing"}), 400
+            encrypted_payload = binascii.unhexlify(encrypted_payload)
+            decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce,encrypted_payload)
+            payload_data = json.loads(decrypted_payload)
+
+            # Extrair dados do payload
+            org_name = payload_data.get("name")
+            print(org_name)
+            subject_data = payload_data.get("subject")
+
+            if not org_name or not subject_data:
+                return jsonify({'error': 'Organization name and subject data are required'}), 400
+
+            # Extrair dados do sujeito
+            username = subject_data.get("username")
+            print(username)
+            full_name = subject_data.get("full_name")
+            email = subject_data.get("email")
+
+            if not username or not full_name or not email:
+                return jsonify({'error': 'All subject fields are required'}), 400
+
+
+
+
+        headers = {
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "X-Nonce": nonce_header,
+        "X-Encrypted-Key": binascii.hexlify(encrypted_key).decode(),
+        "X-Encrypted-Nonce": binascii.hexlify(encrypted_nonce).decode(),
+    }
+
+
+            session_key = decrypt_with_chacha20(chacha_key, chacha_nonce,
+             binascii.unhexlify(encrypted_session_key)).decode('utf-8')
+
