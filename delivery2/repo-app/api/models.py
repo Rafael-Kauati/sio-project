@@ -8,6 +8,11 @@ session_roles = db.Table('session_roles',
     db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True)
 )
 
+subject_roles = db.Table('subject_roles',
+    db.Column('subject_id', db.Integer, db.ForeignKey('subject.id'), primary_key=True),
+    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True)
+)
+
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     #document_handle = db.Column(db.String(64), unique=True, nullable=True)
@@ -45,7 +50,7 @@ class Subject(db.Model):
     email = db.Column(db.String(128), nullable=False)
     public_key = db.Column(db.String(1200), nullable=True)
 
-    # Relação com Organization via tabela associativa
+    roles = db.relationship('Role', secondary=subject_roles, back_populates='subjects')
     organizations = db.relationship('Organization', secondary=subject_organization, back_populates='subjects')
     authentication_ids = db.relationship('AuthenticationID', back_populates='subject', cascade="all, delete-orphan")
 
@@ -66,11 +71,13 @@ class Role(db.Model):
     name = db.Column(db.String(50), nullable=False)
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
     permissions = db.relationship('RolePermission', back_populates='role', cascade='all, delete')
-
+    subjects = db.relationship('Subject', secondary=subject_roles, back_populates='roles')
     organization = db.relationship("Organization", back_populates="roles")
 
     def __repr__(self):
         return f"<Role(name='{self.name}', organization_id='{self.organization_id}')>"
+
+
 
 
 class RolePermission(db.Model):
