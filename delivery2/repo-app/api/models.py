@@ -58,17 +58,19 @@ class Organization(db.Model):
     # Relação com Subject via tabela associativa
     subjects = db.relationship('Subject', secondary=subject_organization, back_populates='organizations')
 
-class AuthenticationID(db.Model):
-    __tablename__ = "authentication_id"
+
+class Role(db.Model):
+    __tablename__ = 'roles'
+
     id = db.Column(db.Integer, primary_key=True)
-    nonce = db.Column(db.String(128), unique=True, nullable=False)  # Nonce must be unique
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    permissions = db.Column(db.JSON, nullable=True)
 
-    # Foreign key to reference Subject
-    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    organization = db.relationship("Organization", back_populates="roles")
 
-    # Relationship back to Subject
-    subject = db.relationship('Subject', back_populates='authentication_ids')
+    def __repr__(self):
+        return f"<Role(name='{self.name}', organization_id='{self.organization_id}')>"
 
 class Session(db.Model):
     __tablename__ = "session"
@@ -84,6 +86,13 @@ class Session(db.Model):
     subject = db.relationship('Subject', backref='sessions')
     roles = db.relationship('Role', secondary=session_roles, backref='sessions')
 
+
+
+
+
+
+
+
 class Nonce(db.Model):
     __tablename__ = "nonces"
     id = db.Column(db.Integer, primary_key=True)
@@ -91,17 +100,14 @@ class Nonce(db.Model):
     used = db.Column(db.Boolean, default=False, nullable=False)  # Novo campo
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-
-
-class Role(db.Model):
-    __tablename__ = 'roles'
-    
+class AuthenticationID(db.Model):
+    __tablename__ = "authentication_id"
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
-    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
-    permissions = db.Column(db.JSON, nullable=True)
+    nonce = db.Column(db.String(128), unique=True, nullable=False)  # Nonce must be unique
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    organization = db.relationship("Organization", back_populates="roles")
+    # Foreign key to reference Subject
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
 
-    def __repr__(self):
-        return f"<Role(name='{self.name}', organization_id='{self.organization_id}')>"
+    # Relationship back to Subject
+    subject = db.relationship('Subject', back_populates='authentication_ids')
