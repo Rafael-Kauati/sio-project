@@ -131,3 +131,10 @@ To delete document :
 bash rep_delete_doc "session_file" "test"
 ```
 
+### Role managmente commands : 
+To list roles of current session :
+
+```bash
+
+bash rep_list_roles "session_file"
+```
