@@ -135,21 +135,7 @@ class DocumentController:
             'file_name': document.name  # Nome do arquivo
         }, 200  # Retorna uma tupla com resposta e código de status
 
-    '''
-    @staticmethod
-    def download_document(file_handle):
-        # Busca o documento no banco de dados
-        document = Document.query.filter_by(file_handle=file_handle).first_or_404()
 
-        # Define o caminho do arquivo usando o `file_handle`
-        file_path = f"/path/to/documents/{document.file_handle}"  # Substitua com o caminho real
-
-        # Verifica se o arquivo existe no caminho especificado
-        if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True)  # Envia o arquivo como anexo
-        else:
-            abort(404, description="File not found.")  # Retorna erro 404 se o arquivo não for encontrado
-    '''
 
 
 
@@ -171,23 +157,7 @@ class OrganizationController:
             chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
             chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
-            # Descriptografar o nonce do cabeçalho `X-Nonce`
-            '''encrypted_nonce_header = request.headers.get("X-Nonce")
-            if not encrypted_nonce_header:
-                return jsonify({"error": "X-Nonce header is missing"}), 400
-            encrypted_nonce_header = binascii.unhexlify(encrypted_nonce_header)
-            nonce_header = decrypt_with_chacha20(chacha_key, chacha_nonce,encrypted_nonce_header).decode('utf-8')
-            print(nonce_header)
-            # Validação do nonce (replay attack prevention)
-            existing_nonce = Nonce.query.filter_by(nonce=nonce_header).first()
-            if existing_nonce:
-                return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
-            else:
-                # Salva o nonce na tabela
-                new_nonce = Nonce(nonce=nonce_header)
 
-                db.session.add(new_nonce)
-                db.session.commit()'''
 
             # Descriptografar o payload da requisição
             encrypted_payload = request.json.get("encrypted_payload")
