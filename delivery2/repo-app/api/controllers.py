@@ -584,12 +584,28 @@ class SessionController:
 
     @staticmethod
     def list_session_roles(session_key):
-        session = check_session(session_key)
+        # Verificar a sessão ativa
+        session = Session.query.filter_by(session_key=session_key).first()
         if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if subject is None:
+            return jsonify({"error": "Subject não encontrado para essa sessão"}), 404
+
+        # Obter as roles associadas ao subject
+        roles = subject.roles
+
+        # Verificar se há roles associadas
+        if not roles:
+            return jsonify({"message": "Esse sujeito não possui roles associadas"}), 404
+
+        # Preparar resposta com as informações das roles
+        role_data = [{"id": role.id, "name": role.name, "organization_id": role.organization_id} for role in roles]
+
+        return jsonify({"roles": role_data}), 200
         
-        roles = [role.name for role in session.roles]
-        return jsonify({"roles": roles}), 200
 
     @staticmethod
     def create_session():
