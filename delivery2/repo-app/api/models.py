@@ -65,12 +65,38 @@ class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
-    permissions = db.Column(db.JSON, nullable=True)
+    permissions = db.relationship('RolePermission', back_populates='role', cascade='all, delete')
 
     organization = db.relationship("Organization", back_populates="roles")
 
     def __repr__(self):
         return f"<Role(name='{self.name}', organization_id='{self.organization_id}')>"
+
+
+class RolePermission(db.Model):
+    __tablename__ = 'role_permissions'
+
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), primary_key=True)
+    permission_id = db.Column(db.Integer, db.ForeignKey('permissions.id'), primary_key=True)
+    role = db.relationship('Role', back_populates='permissions')
+    permission = db.relationship('Permission', back_populates='roles')
+
+    def __repr__(self):
+        return f"<RolePermission(role_id={self.role_id}, permission_id={self.permission_id})>"
+
+
+
+class Permission(db.Model):
+    __tablename__ = 'permissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    description = db.Column(db.String(200), nullable=True)
+
+    def __repr__(self):
+        return f"<Permission(id={self.id}, name={self.name})>"
+
+Permission.roles = db.relationship('RolePermission', back_populates='permission', cascade='all, delete')
 
 class Session(db.Model):
     __tablename__ = "session"

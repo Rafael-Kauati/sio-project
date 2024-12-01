@@ -87,24 +87,49 @@ logger = logging.getLogger(__name__)
 logger.info("Logging configuration test.")
 
 # Import your models
-from .models import Document, Organization, Session, Subject
+from .models import Document, Organization, Session, Subject, Permission
 
 ## Gen pub key for anonymous API :
 #gen_anon_key()
 #generate_and_save_master_key()
 # Create the tables in the database
+
 with app.app_context():
-    #db.drop_all()
-    '''with db.engine.connect() as connection:
-        connection.execute(text("DROP TABLE IF EXISTS nonces CASCADE;"))
-        connection.execute(text("DROP TABLE IF EXISTS session CASCADE;"))
-        connection.execute(text("DROP TABLE IF EXISTS organization CASCADE;"))'''
+    # Recria as tabelas (se necessário, habilite o drop_all para reinicializar completamente)
+    # db.drop_all()
     db.create_all()
 
-    # Verify if the organization table exists
+    # Verifica se a tabela 'organization' foi criada
     result = db.session.execute("SELECT * FROM information_schema.tables WHERE table_name = 'organization'")
     for row in result:
         print(row)
+
+    # Cria permissões iniciais, caso ainda não existam
+    permissions = [
+        {"name": "DOC_READ", "description": "Permission to read document contents."},
+        {"name": "DOC_WRITE", "description": "Permission to write document contents."},
+        {"name": "DOC_DELETE", "description": "Permission to delete document contents."},
+        {"name": "ROLE_ACL", "description": "Permission to modify the role's ACL."},
+        {"name": "SUBJECT_NEW", "description": "Permission to add a new subject."},
+        {"name": "SUBJECT_DOWN", "description": "Permission to suspend a subject."},
+        {"name": "SUBJECT_UP", "description": "Permission to reactivate a subject."},
+        {"name": "DOC_NEW", "description": "Permission to add a new document."},
+        {"name": "ROLE_NEW", "description": "Permission to create a new role."},
+        {"name": "ROLE_DOWN", "description": "Permission to suspend a role."},
+        {"name": "ROLE_UP", "description": "Permission to reactivate a role."},
+        {"name": "ROLE_MOD", "description": "Permission to modify a role."}
+    ]
+
+    # Adiciona permissões apenas se elas não existirem
+    for permission in permissions:
+        existing_permission = db.session.query(db.exists().where(Permission.name == permission["name"])).scalar()
+        if not existing_permission:
+            new_permission = Permission(name=permission["name"], description=permission["description"])
+            db.session.add(new_permission)
+
+    # Salva as permissões no banco de dados
+    db.session.commit()
+    print("Permissões criadas ou já existentes no banco de dados.")
 
 from .routes import main_bp
 app.register_blueprint(main_bp)
