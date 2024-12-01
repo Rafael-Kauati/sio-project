@@ -9,7 +9,7 @@ import string
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import jsonify, abort
-from api.models import db, Document,AuthenticationID, Organization, Session, Subject, Role, Nonce, subject_organization
+from api.models import db, Document,Permission,RolePermission,AuthenticationID, Organization, Session, Subject, Role, Nonce, subject_organization
 from werkzeug.utils import secure_filename
 from .utils import *
 from . import app  
@@ -157,29 +157,24 @@ class OrganizationController:
             chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
             chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
 
-
-
             # Descriptografar o payload da requisição
             encrypted_payload = request.json.get("encrypted_payload")
             if not encrypted_payload:
                 return jsonify({"error": "Encrypted payload is missing"}), 400
             encrypted_payload = binascii.unhexlify(encrypted_payload)
-            decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce,encrypted_payload)
+            decrypted_payload = decrypt_with_chacha20(chacha_key, chacha_nonce, encrypted_payload)
             payload_data = json.loads(decrypted_payload)
 
             # Extrair dados do payload
             org_name = payload_data.get("name")
-            #print(org_name)
             subject_data = payload_data.get("subject")
-            #print(payload_data.get("public_key"))
             public_key = payload_data.get("public_key")
             if not org_name or not subject_data or not public_key:
-                return jsonify({'error': f'Organization name, subject and subject public data are required {payload_data}'}), 400
-
+                return jsonify(
+                    {'error': f'Organization name, subject and subject public data are required {payload_data}'}), 400
 
             # Extrair dados do sujeito
             username = subject_data.get("username")
-            #print(username)
             full_name = subject_data.get("full_name")
             email = subject_data.get("email")
 
@@ -195,14 +190,26 @@ class OrganizationController:
                 public_key=public_key
             )
 
-            # Adicionar sujeito à organização
+            # Criar a role "Manager" e associar permissões
+            manager_role = Role(name="Manager", organization=organization)
+            db.session.add(manager_role)
+
+            # Associar todas as permissões existentes à role "Manager"
+            permissions = Permission.query.all()  # Recupera todas as permissões da tabela 'permissions'
+            for permission in permissions:
+                role_permission = RolePermission(role=manager_role, permission=permission)
+                db.session.add(role_permission)
+
+            # Adicionar o sujeito à organização
             organization.subjects.append(subject)
 
+            # Associar a role "Manager" apenas ao sujeito recém-criado
+            subject.roles.append(manager_role)
+
             # Salvar entidades no banco de dados
-            db.session.add(organization)
             db.session.commit()
-            return jsonify(
-                {'message': 'Organization and subject created successfully, and relationship established'}), 201
+
+            return jsonify({'message': 'Organization and subject created successfully, and role "Manager" created and associated'}), 201
 
         except binascii.Error:
             return jsonify({"error": "Invalid hexadecimal data in headers or payload"}), 400
@@ -577,12 +584,28 @@ class SessionController:
 
     @staticmethod
     def list_session_roles(session_key):
-        session = check_session(session_key)
+        # Verificar a sessão ativa
+        session = Session.query.filter_by(session_key=session_key).first()
         if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if subject is None:
+            return jsonify({"error": "Subject não encontrado para essa sessão"}), 404
+
+        # Obter as roles associadas ao subject
+        roles = subject.roles
+
+        # Verificar se há roles associadas
+        if not roles:
+            return jsonify({"message": "Esse sujeito não possui roles associadas"}), 404
+
+        # Preparar resposta com as informações das roles
+        role_data = [{"id": role.id, "name": role.name, "organization_id": role.organization_id} for role in roles]
+
+        return jsonify({"roles": role_data}), 200
         
-        roles = [role.name for role in session.roles]
-        return jsonify({"roles": roles}), 200
 
     @staticmethod
     def create_session():
