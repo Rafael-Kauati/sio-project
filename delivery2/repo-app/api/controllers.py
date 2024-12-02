@@ -5,49 +5,49 @@ import json
 import random
 import secrets
 import string
+import uuid
 
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import jsonify, abort
-from api.models import db, Document,Permission,RolePermission,AuthenticationID, Organization, Session, Subject, Role, Nonce, subject_organization
+from api.models import db, Document, Permission, RolePermission, AuthenticationID, Organization, Session, Subject, Role, \
+    Nonce, subject_organization
 from werkzeug.utils import secure_filename
 from .utils import *
-from . import app  
+from . import app
 import os
-
+import jwt
 
 from flask import request
-
 
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import base64
 
 
-
-
-
 def check_session(session_key):
-    """
-    Verifica a validade de uma sessão a partir de uma chave de sessão criptografada.
-    """
-    # Descriptografa a chave de sessão
-    '''try:
-        encrypted_session_key_bytes = base64.b64decode(encrypted_session_key_from_url)
-        session_key = decrypt_session_key(encrypted_session_key_bytes)
-    except Exception as e:
-        print(f"Erro ao descriptografar a chave de sessão: {e}")
-        return None  # Caso a descriptografia falhe, retorna None'''
+    try:
+        # Decode and validate the JWT signature
+        payload = jwt.decode(
+            session_key,
+            SessionController.SECRET_KEY,
+            algorithms=["HS256"]
+        )
+    except jwt.ExpiredSignatureError:
+        return None, "Session token has expired."
+    except jwt.InvalidTokenError as e:
+        return None, f"Invalid session token: {str(e)}"
 
     # Busca a sessão no banco usando a chave de sessão descriptografada
     session = Session.query.filter_by(session_key=session_key).first()
-
     if not session:
         return None  # Se não encontrar a sessão, retorna None
+    is_valid = is_session_valid(session)
+    if not is_valid:
+        return None  # Se estiver expirada
 
     # A sessão foi encontrada e é válida
     return session
-
 
 
 class DocumentController:
@@ -72,7 +72,7 @@ class DocumentController:
             # Converta a data de string para objeto datetime
             from datetime import datetime
             date_obj = datetime.strptime(date_str, '%d-%m-%Y')
-            
+
             if filter_type == 'more_recent':
                 query = query.filter(Document.create_date > date_obj)
             elif filter_type == 'older':
@@ -83,7 +83,6 @@ class DocumentController:
         documents = query.all()
 
         return [doc.to_dict() for doc in documents]  # Suponha que você tenha um método to_dict em Document
-
 
     @staticmethod
     def download_document(file_handle):
@@ -130,13 +129,10 @@ class DocumentController:
 
         # Retorna tanto o conteúdo do arquivo quanto a chave desencriptada
         return {
-            #'file_key': decrypted_file_key.decode('utf-8'),
+            # 'file_key': decrypted_file_key.decode('utf-8'),
             'file_data': file_data,  # Dados binários do arquivo
             'file_name': document.name  # Nome do arquivo
         }, 200  # Retorna uma tupla com resposta e código de status
-
-
-
 
 
 class OrganizationController:
@@ -209,7 +205,8 @@ class OrganizationController:
             # Salvar entidades no banco de dados
             db.session.commit()
 
-            return jsonify({'message': 'Organization and subject created successfully, and role "Manager" created and associated'}), 201
+            return jsonify({
+                               'message': 'Organization and subject created successfully, and role "Manager" created and associated'}), 201
 
         except binascii.Error:
             return jsonify({"error": "Invalid hexadecimal data in headers or payload"}), 400
@@ -222,7 +219,11 @@ class OrganizationController:
         organizations = Organization.query.all()
         return jsonify([org.name for org in organizations]), 200
 
+
 class SessionController:
+
+    SECRET_KEY = "ultra_secret_repo_key"
+
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
@@ -259,7 +260,7 @@ class SessionController:
         organization = session.organization
         if not organization:
             return {"success": False, "message": "No organization associated with this session",
-                 "new_nonce": new_nonce}, 404
+                    "new_nonce": new_nonce}, 404
 
         # Obter o subject associado à sessão
         subject = session.subject
@@ -273,7 +274,7 @@ class SessionController:
 
         if not document:
             return {"success": False, "message": "Document not found",
-                 "new_nonce": new_nonce}, 404
+                    "new_nonce": new_nonce}, 404
 
         # Verificar se os dados de criptografia estão presentes
         encrypted_file_key = document.encrypted_file_key
@@ -283,7 +284,7 @@ class SessionController:
 
         if not encrypted_file_key or not iv or not tag or not ephemeral_public_key:
             return {'error': 'Cryptography data not found for this document',
-                 "new_nonce": new_nonce}, 404
+                    "new_nonce": new_nonce}, 404
 
         # Descriptografar a chave do arquivo
         try:
@@ -307,15 +308,15 @@ class SessionController:
                 "document name": document.name,
                 "file_key": decrypted_file_key.hex(),
                 "file_handle": file_handle,
-                "encryption_metadata" : encryption_metadata,
-                 "new_nonce": new_nonce
+                "encryption_metadata": encryption_metadata,
+                "new_nonce": new_nonce
             }, 200
         except Exception as e:
             db.session.rollback()
             return {"success": False, "message": f"Failed to update document: {str(e)}"}, 500
 
     @staticmethod
-    def get_document_metadata(session_key,document_name):
+    def get_document_metadata(session_key, document_name):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
         if session is None:
@@ -369,7 +370,7 @@ class SessionController:
             "organization_id": document.organization_id,
             "file_handle": document.file_handle,
             "file_key": decrypted_file_key.decode('utf-8'),
-            "encryption_vars" : json.dumps(document.encryption_vars)
+            "encryption_vars": json.dumps(document.encryption_vars)
         }
 
         # Certifique-se de que todos os dados são serializáveis
@@ -382,7 +383,8 @@ class SessionController:
         return {"metadata": metadata}, 200
 
     @staticmethod
-    def upload_document_to_organization(session_key, nonce,file_name, file, file_handle, file_encryption_key, encryption_vars,
+    def upload_document_to_organization(session_key, nonce, file_name, file, file_handle, file_encryption_key,
+                                        encryption_vars,
                                         private_key_path="master_key.pem.pub"):
         # Verifica a sessão e a organização correspondente
         session = check_session(session_key)
@@ -439,7 +441,7 @@ class SessionController:
 
         # Cria um novo documento, incluindo o campo `encryption_vars`
         new_document = Document(
-            #document_handle=file_name,
+            # document_handle=file_name,
             name=file_name,
             create_date=datetime.now(),
             creator=subject.username,
@@ -458,11 +460,10 @@ class SessionController:
         db.session.commit()
 
         return {"message": "Documento adicionado com sucesso",
-                "document_id": new_document.id , "new_nonce": new_nonce}, 201
+                "document_id": new_document.id, "new_nonce": new_nonce}, 201
 
     @staticmethod
     def add_subject_to_organization(session_key, nonce, username, name, email, public_key):
-
 
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
         if not existing_nonce:
@@ -493,7 +494,7 @@ class SessionController:
         organization = session.organization
         if not organization:
             return {"error": "Organização associada à sessão não encontrada."
-                    , "new_nonce": new_nonce}, 404
+                , "new_nonce": new_nonce}, 404
         print(f"Username: {username}, Name: {name}, Email: {email}")
         # Verificar se o username já existe na organização
         existing_subject = db.session.query(Subject).join(subject_organization).filter(
@@ -503,7 +504,7 @@ class SessionController:
         if existing_subject:
             print(f"Existing subject: {existing_subject}")
             return {"error": "Um usuário com esse username já existe nesta organização."
-                    , "new_nonce": new_nonce}, 400
+                , "new_nonce": new_nonce}, 400
 
         # Criar novo Subject e associá-lo à organização
         new_subject = Subject(
@@ -522,7 +523,7 @@ class SessionController:
             db.session.commit()
 
             return {"id": new_subject.id, "message": "Sujeito adicionado com sucesso."
-                    , "new_nonce": new_nonce}, 201
+                , "new_nonce": new_nonce}, 201
         except Exception as e:
             db.session.rollback()
             return {"error": f"Ocorreu um erro ao adicionar o sujeito: {str(e)}"}, 500
@@ -532,17 +533,17 @@ class SessionController:
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
-        
+
         organization = session.organization  # Obtém a organização associada à sessão
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Obter todos os roles associados à organização
         roles = Role.query.filter_by(organization_id=organization.id).all()
-        
+
         return jsonify([{
-            'id': role.id, 
-            'name': role.name, 
+            'id': role.id,
+            'name': role.name,
             'permissions': role.permissions
         } for role in roles]), 200
 
@@ -605,7 +606,6 @@ class SessionController:
         role_data = [{"id": role.id, "name": role.name, "organization_id": role.organization_id} for role in roles]
 
         return jsonify({"roles": role_data}), 200
-        
 
     @staticmethod
     def create_session():
@@ -642,6 +642,7 @@ class SessionController:
         subject = Subject.query.filter_by(username=data.get("username")).first()
         if not subject:
             return jsonify({"error": "Subject not found"}), 404
+
         # Verify the signature
         try:
             public_key_pem = subject.public_key.encode()
@@ -666,19 +667,33 @@ class SessionController:
         db.session.add(new_auth_id)
         db.session.commit()
 
-        # Proceed with session creation (existing code)
-        session_key = SessionController.generate_session_key(32)
+        # Generate JWT as session_key
+        created_at = datetime.now(timezone.utc)
+        expiration_time = created_at + timedelta(minutes=15)  # Token valid for 15 minutes
+        payload = {
+            "session_id": new_auth_id.id,  # Unique session identifier
+            "organization_name": data.get("organization_name"),  # Organization name
+            "subject_username": subject.username,  # Username of the subject
+            "iat": created_at,  # Issued at
+            "exp": expiration_time,  # Expiration time
+            "jti": str(uuid.uuid4()),  # Unique identifier for this token
+        }
+
+        session_key = jwt.encode(payload, SessionController.SECRET_KEY, algorithm="HS256")
+
+        # Save the session to the database
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
         new_session = Session(
-            session_key=session_key,
+            session_key=session_key,  # Store the JWT here
             password=data.get("password"),
             credentials=data.get("credentials"),
             organization_id=organization.id,
-            subject=subject
+            subject=subject,
+            created_at=created_at  # Store the creation time for server-side expiration
         )
 
         db.session.add(new_session)
@@ -696,14 +711,13 @@ class SessionController:
         db.session.add(new_nonce)
         db.session.commit()
 
-        # Return the session context
         return jsonify({
             'message': 'Session created successfully',
             'session_context': {
                 'session_id': new_session.id,
                 'organization_name': organization.name,
                 'subject_username': subject.username,
-                'session_key': new_session.session_key,
+                'session_token': session_key,  # JWT returned to the client
                 'nonce': nonce
             }
         }), 201
@@ -725,12 +739,12 @@ class SessionController:
         if session is None:
             return {"error": "Sessão inválida ou não encontrada"}, 404
         '''
-       
+
         # Search for the specific role by name and organization of the session
         role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
         if not role:
             abort(404, description="Role not found in this organization")
-        
+
         # Add the role to the session
         session.roles.append(role)
         db.session.commit()
@@ -762,7 +776,6 @@ class SessionController:
         db.session.commit()
 
         return jsonify({"message": f"Role '{new_role}' criada com sucesso!"}), 200
-
 
     @staticmethod
     def release_role():

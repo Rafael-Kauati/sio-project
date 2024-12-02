@@ -9,3 +9,4 @@ Flask-Migrate
 flasgger
 flask-restx
 cryptography
+PyJWT
