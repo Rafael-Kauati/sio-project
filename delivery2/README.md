@@ -138,3 +138,10 @@ To list roles of current session :
 
 bash rep_list_roles "session_file"
 ```
+
+To create a new in the organization of current session :
+
+```bash
+
+bash rep_add_role "session_file" "new_role"
+ ```

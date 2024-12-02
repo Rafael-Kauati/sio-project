@@ -738,6 +738,33 @@ class SessionController:
         return jsonify({"message": f"Role '{role_name}' assumed successfully"}), 200
 
     @staticmethod
+    def add_role(session_key, new_role):
+        # Verificar a sessão e obter as informações
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada"}), 404
+
+        # Verificar se a role já existe na organização
+        role = Role.query.filter_by(name=new_role, organization_id=organization.id).first()
+        if role:
+            return jsonify({"error": "Role já existe na organização"}), 400
+
+        # Criar a nova role
+        role = Role(name=new_role, organization_id=organization.id)
+
+        # Adicionar a role à organização (sem associar a nenhum subject ainda)
+        db.session.add(role)
+        db.session.commit()
+
+        return jsonify({"message": f"Role '{new_role}' criada com sucesso!"}), 200
+
+
+    @staticmethod
     def release_role():
         data = request.json
         session_key = data.get("session_key")
