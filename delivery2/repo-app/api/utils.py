@@ -174,7 +174,7 @@ def decrypt_with_private_key(private_key_path, encrypted_data):
         )
 
 def is_session_valid(session):
-    expiration_time = timedelta(seconds=2400) # 4 minutes
+    expiration_time = timedelta(seconds=15*60) # 15 minutes
 
     now = datetime.now(timezone.utc)
 
