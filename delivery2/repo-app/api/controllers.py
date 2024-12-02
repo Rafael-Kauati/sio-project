@@ -5,6 +5,7 @@ import json
 import random
 import secrets
 import string
+import uuid
 
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
@@ -25,7 +26,17 @@ import base64
 
 
 def check_session(session_key):
-
+    try:
+        # Decode and validate the JWT signature
+        payload = jwt.decode(
+            session_key,
+            SessionController.SECRET_KEY,
+            algorithms=["HS256"]
+        )
+    except jwt.ExpiredSignatureError:
+        return None, "Session token has expired."
+    except jwt.InvalidTokenError as e:
+        return None, f"Invalid session token: {str(e)}"
 
     # Busca a sessão no banco usando a chave de sessão descriptografada
     session = Session.query.filter_by(session_key=session_key).first()
@@ -658,11 +669,16 @@ class SessionController:
 
         # Generate JWT as session_key
         created_at = datetime.now(timezone.utc)
+        expiration_time = created_at + timedelta(minutes=15)  # Token valid for 15 minutes
         payload = {
-            "session_id": new_auth_id.id,
-            "organization_name": data.get("organization_name"),
-            "subject_username": subject.username
+            "session_id": new_auth_id.id,  # Unique session identifier
+            "organization_name": data.get("organization_name"),  # Organization name
+            "subject_username": subject.username,  # Username of the subject
+            "iat": created_at,  # Issued at
+            "exp": expiration_time,  # Expiration time
+            "jti": str(uuid.uuid4()),  # Unique identifier for this token
         }
+
         session_key = jwt.encode(payload, SessionController.SECRET_KEY, algorithm="HS256")
 
         # Save the session to the database
