@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 from .utils import *
 from . import app
 import os
+import jwt
 
 from flask import request
 
@@ -24,16 +25,7 @@ import base64
 
 
 def check_session(session_key):
-    """
-    Verifica a validade de uma sessão a partir de uma chave de sessão criptografada.
-    """
-    # Descriptografa a chave de sessão
-    '''try:
-        encrypted_session_key_bytes = base64.b64decode(encrypted_session_key_from_url)
-        session_key = decrypt_session_key(encrypted_session_key_bytes)
-    except Exception as e:
-        print(f"Erro ao descriptografar a chave de sessão: {e}")
-        return None  # Caso a descriptografia falhe, retorna None'''
+
 
     # Busca a sessão no banco usando a chave de sessão descriptografada
     session = Session.query.filter_by(session_key=session_key).first()
@@ -218,6 +210,9 @@ class OrganizationController:
 
 
 class SessionController:
+
+    SECRET_KEY = "ultra_secret_repo_key"
+
     @staticmethod
     def get_session_by_key(session_key):
         return Session.query.filter_by(session_key=session_key).first()
@@ -636,6 +631,7 @@ class SessionController:
         subject = Subject.query.filter_by(username=data.get("username")).first()
         if not subject:
             return jsonify({"error": "Subject not found"}), 404
+
         # Verify the signature
         try:
             public_key_pem = subject.public_key.encode()
@@ -660,19 +656,28 @@ class SessionController:
         db.session.add(new_auth_id)
         db.session.commit()
 
-        # Proceed with session creation (existing code)
-        session_key = SessionController.generate_session_key(32)
+        # Generate JWT as session_key
+        created_at = datetime.now(timezone.utc)
+        payload = {
+            "session_id": new_auth_id.id,
+            "organization_name": data.get("organization_name"),
+            "subject_username": subject.username
+        }
+        session_key = jwt.encode(payload, SessionController.SECRET_KEY, algorithm="HS256")
+
+        # Save the session to the database
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
         new_session = Session(
-            session_key=session_key,
+            session_key=session_key,  # Store the JWT here
             password=data.get("password"),
             credentials=data.get("credentials"),
             organization_id=organization.id,
-            subject=subject
+            subject=subject,
+            created_at=created_at  # Store the creation time for server-side expiration
         )
 
         db.session.add(new_session)
@@ -690,14 +695,13 @@ class SessionController:
         db.session.add(new_nonce)
         db.session.commit()
 
-        # Return the session context
         return jsonify({
             'message': 'Session created successfully',
             'session_context': {
                 'session_id': new_session.id,
                 'organization_name': organization.name,
                 'subject_username': subject.username,
-                'session_key': new_session.session_key,
+                'session_token': session_key,  # JWT returned to the client
                 'nonce': nonce
             }
         }), 201

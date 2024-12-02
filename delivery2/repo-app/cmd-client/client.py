@@ -215,7 +215,7 @@ def create_session(data, session_file):
     if response.status_code == 201:
         # Obtém a resposta e criptografa a session_key
         response_data = response.json()
-        #session_key = response_data["session_context"]["session_key"]
+        #session_key = response_data["session_context"]["session_token"]
 
         ### Nao encryptar aq :
 
@@ -254,7 +254,7 @@ def add_subject(data, session_file):
     # Carrega o arquivo de sessão para obter a session_key
     with open(session_file, 'r') as session_file_handle:
         session_data = json.load(session_file_handle)
-        session_key = session_data["session_context"]["session_key"].encode('utf-8')  # Garantir que está como bytes
+        session_key = session_data["session_context"]["session_token"].encode('utf-8')  # Garantir que está como bytes
 
     # Carrega as credenciais do arquivo
     with open(data['credentials_file'], 'r') as cred_file:
@@ -320,7 +320,7 @@ def get_document_metadata(session_file, document_name):
     # Abrir o arquivo de sessão para ler o session_key
     with open(session_file, 'r') as session_file:
         session_data = json.load(session_file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
     key = os.urandom(32)
     nonce = os.urandom(16)
 
@@ -534,7 +534,7 @@ def upload_document(data):
     # Carrega o arquivo de sessão para obter a session_key
     with open(data['session_file'], 'r') as session_file:
         session_data = json.load(session_file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
 
     # Carrega e criptografa o arquivo
     with open(data['file'], 'rb') as file:
@@ -592,7 +592,7 @@ def get_documents(data):
     # Carrega o arquivo de sessão para obter a session_key
     with open(data['session_file'], 'r') as session_file:
         session_data = json.load(session_file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
         # Gera a chave e o nonce para ChaCha20
     key = os.urandom(32)
     nonce = os.urandom(16)
@@ -639,7 +639,7 @@ def delete_document(session_file, document_name):
     # Carrega o arquivo de sessão para obter o session_key
     with open(session_file, 'r') as session_file_handle:
         session_data = json.load(session_file_handle)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
 
     # URL do endpoint para deletar o documento
 
@@ -693,7 +693,7 @@ def list_subjects(session_file, username=None):
     # Carregar os dados do arquivo da sessão
     with open(session_file, 'r') as file:
         session_data = json.load(file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
 
 
     # Definir a URL do servidor
@@ -952,7 +952,7 @@ def add_new_role(session_file, new_role):
     # Carregar os dados do arquivo da sessão
     with open(session_file, 'r') as file:
         session_data = json.load(file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
 
     # Definir a URL do servidor
     url = f"http://{state['REP_ADDRESS']}//sessions/roles/add"
@@ -998,7 +998,7 @@ def list_roles_by_session(session_file):
     # Carregar os dados do arquivo da sessão
     with open(session_file, 'r') as file:
         session_data = json.load(file)
-        session_key = session_data["session_context"]["session_key"]
+        session_key = session_data["session_context"]["session_token"]
 
     # Definir a URL do servidor
     url = f"http://{state['REP_ADDRESS']}//sessions/roles"
