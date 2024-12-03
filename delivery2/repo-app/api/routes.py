@@ -99,13 +99,36 @@ def download_file(file_handle):
 @main_bp.route('/sessions/assume_role', methods=['POST'])
 def assume_role_route():
     logger.info("Request to assume role received.")
-    return SessionController.assume_role()
-
-
-@main_bp.route('/sessions/release_role', methods=['POST'])
-def release_role_route():
     logger.info("Request to release role received.")
-    return SessionController.release_role()
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_role = request.headers.get("role")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing role"}), 400
+    role = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_role)).decode(
+        'utf-8')
+    print("role : ", role)
+    return SessionController.assume_role(session_key, role)
+
+
 
 @main_bp.route('/sessions/roles/add', methods=['POST'])
 def add_role_route():
@@ -162,6 +185,11 @@ def list_session_roles_route():
 
     logger.info(f"Request to list roles for session: {session_key}")
     return SessionController.list_session_roles(session_key)
+
+@main_bp.route('/sessions/release_role', methods=['POST'])
+def release_role_route():
+    logger.info("Request to release role received.")
+    return SessionController.release_role()
 
 
 @main_bp.route('/sessions/subjects', methods=['GET'])

@@ -145,3 +145,10 @@ To create a new in the organization of current session :
 
 bash rep_add_role "session_file" "new_role"
  ```
+
+To create assume a role in the organization of current session :
+
+```bash
+
+bash rep_assume_role "session_file" "new_role"
+ ```

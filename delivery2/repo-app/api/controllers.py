@@ -729,27 +729,37 @@ class SessionController:
         return session_key
 
     @staticmethod
-    def assume_role():
-        data = request.json
-        session_key = data.get("session_key")
-        role_name = data.get("role")
-
-        # Busca a sessão pelo campo `keys`
+    def assume_role(session_key, role_name):
+        # Verificar a sessão pelo session_key
         session = check_session(session_key)
         if session is None:
-            return {"error": "Sessão inválida ou não encontrada"}, 404
-        '''
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
-        # Search for the specific role by name and organization of the session
-        role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada"}), 404
+
+        # Buscar a role pelo nome e pela organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
         if not role:
-            abort(404, description="Role not found in this organization")
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
 
-        # Add the role to the session
-        session.roles.append(role)
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
+
+        # Verificar se a associação já existe
+        if role in subject.roles:
+            return jsonify({"message": f"Subject já está associado à role '{role_name}'"}), 200
+
+        # Associar a role ao subject
+        subject.roles.append(role)
         db.session.commit()
-        '''
-        return jsonify({"message": f"Role '{role_name}' assumed successfully"}), 200
+
+        # Retornar resposta de sucesso
+        return jsonify({"message": f"Role '{role_name}' associada ao subject '{subject.username}' com sucesso!"}), 200
 
     @staticmethod
     def add_role(session_key, new_role):

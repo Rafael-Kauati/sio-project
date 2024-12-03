@@ -172,7 +172,7 @@ def create_session(data, session_file):
 
     # Print the signed nonce in a readable format (e.g., hex)
     signed_nonce = signature.hex()
-    print(f"\nSigned nonce: {signed_nonce}")
+    #print(f"\nSigned nonce: {signed_nonce}")
 
     # Prepare the payload
     payload = {
@@ -815,7 +815,7 @@ def parse_args(state):
                                             "rep_add_subject", "rep_list_subjects",  # Added missing comma
                                             "rep_add_doc", "rep_get_file","rep_delete_doc",
                                             "rep_subject_credentials", "rep_decrypt_file",
-                                            "rep_list_roles", "rep_add_role"], help="Command to execute")
+                                            "rep_list_roles", "rep_add_role", "rep_assume_role","rep_drop_role "], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -851,6 +851,11 @@ def parse_args(state):
     if args.command =="rep_add_role":
         command_parser.add_argument("session_file", help="Path to session file")
         command_parser.add_argument("role", help="new role to be craeted")
+
+
+    if args.command =="rep_assume_role":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("role", help="role to be assumed")
 
     if args.command == "rep_subject_credentials":
         command_parser.add_argument("password", help="Password to generate the key")
@@ -946,6 +951,47 @@ if 'REP_ADDRESS' not in state:
 if 'REP_PUB_KEY' not in state:
   logger.error("Must set the Repository Public Key")
   sys.exit(-1)
+
+if args.command == "rep_assume_role":
+    session_file = command_args.session_file
+    role = command_args.role
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+    # Definir a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}//sessions/assume_role"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    # nonce_header = str(uuid.uuid4())
+    # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+    encrypted_role =  encrypt_with_chacha20(key, nonce, role)
+
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        # "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "role": binascii.hexlify(encrypted_role).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    # Enviar a requisição GET com a session_key e nonce no cabeçalho
+    response = requests.post(url, headers=headers)
+
+    # Retornar a resposta em formato JSON
+    print(response.json())
 
 
 def add_new_role(session_file, new_role):
