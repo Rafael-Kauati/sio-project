@@ -750,6 +750,34 @@ class SessionController:
         return jsonify({"message": f"Role '{role_name}' associada ao subject '{subject.username}' com sucesso!"}), 200
 
     @staticmethod
+    def drop_role(session_key, role_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
+
+        # Buscar a role pelo nome e organização
+        role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Verificar se a role está associada ao subject
+        if role not in subject.roles:
+            return jsonify({"error": f"Role '{role_name}' não está associada ao subject '{subject.username}'"}), 400
+
+        # Remover a associação entre a role e o subject
+        subject.roles.remove(role)
+        db.session.commit()
+
+        return jsonify(
+            {"message": f"Role '{role_name}' desassociada do subject '{subject.username}' com sucesso!"}), 200
+
+    @staticmethod
     def add_role(session_key, new_role):
         # Verificar a sessão e obter as informações
         session = check_session(session_key)

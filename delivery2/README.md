@@ -152,3 +152,11 @@ To create assume a role in the organization of current session :
 
 bash rep_assume_role "session_file" "new_role"
  ```
+
+
+To create realease a role in the organization of current session :
+
+```bash
+
+bash rep_drop_role "session_file" "new_role"
+ ```
