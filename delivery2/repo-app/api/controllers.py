@@ -759,6 +759,47 @@ class SessionController:
         return jsonify({"message": f"Role '{role_name}' tornou-se acessível ao subject '{username}' com sucesso!"}), 200
 
     @staticmethod
+    def remove_access_of_role_to_subject(session_key, role_name, username):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Buscar o subject pelo username
+        subject = Subject.query.filter_by(username=username).first()
+        if not subject:
+            return jsonify({"error": f"Subject com username '{username}' não encontrado"}), 404
+
+        # Verificar se o subject pertence à organização
+        if organization not in subject.organizations:
+            return jsonify({"error": f"Subject '{username}' não pertence à organização"}), 400
+
+        # Verificar se a role está acessível ao subject
+        if role not in subject.accessible_roles:
+            return jsonify({"error": f"Role '{role_name}' não está acessível ao subject '{username}'"}), 404
+
+        # Remover o acesso da role ao subject
+        subject.accessible_roles.remove(role)
+
+        # Verificar se a role está diretamente associada ao subject e desassociar se necessário
+        if role in subject.roles:
+            subject.roles.remove(role)
+
+        db.session.commit()
+
+        return jsonify({"message": f"Acesso da role '{role_name}' removido do subject '{username}' com sucesso!"}), 200
+
+    @staticmethod
     def add_permission_to_role(session_key, role_name, permission_name):
         # Verificar a sessão
         session = check_session(session_key)
@@ -791,6 +832,39 @@ class SessionController:
         response = f"Permissão '{permission_name}' associada à role '{role_name}' com sucesso!"
         print(response)
         return jsonify({"message": f"Permissão '{permission_name}' associada à role '{role_name}' com sucesso!"}), 200
+
+    @staticmethod
+    def remove_permission_from_role(session_key, role_name, permission_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Buscar a permissão pela tabela de permissões
+        permission = Permission.query.filter_by(name=permission_name).first()
+        if not permission:
+            return jsonify({"error": f"Permissão '{permission_name}' não encontrada"}), 404
+
+        # Verificar se a permissão está associada à role
+        role_permission = RolePermission.query.filter_by(role_id=role.id, permission_id=permission.id).first()
+        if not role_permission:
+            return jsonify({"error": f"Permissão '{permission_name}' não está associada à role '{role_name}'"}), 404
+
+        # Remover a permissão da role
+        db.session.delete(role_permission)
+        db.session.commit()
+
+        return jsonify({"message": f"Permissão '{permission_name}' removida da role '{role_name}' com sucesso!"}), 200
 
     @staticmethod
     def assume_role(session_key, role_name):

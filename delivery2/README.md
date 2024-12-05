@@ -78,9 +78,9 @@ bash rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_fil
 
 To create a new subject (this command assumes that the credentials are stored as a json content) :
 ```bash
-bash rep_subject_credentials "password2" "credentials"
-bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
-bash rep_create_session "Org4"  "gabs"  "password" "credentials" "session_file"
+bash rep_subject_credentials "password2" "credentials2"
+bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials2"
+bash rep_create_session "Org4"  "gabs"  "password" "credentials2" "session_file"
 ```
 <hr>
 
