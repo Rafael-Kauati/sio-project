@@ -739,6 +739,10 @@ class SessionController:
         if not role:
             return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
 
+        # Verificar se a role está acessível para o subject
+        if role not in subject.accessible_roles:
+            return jsonify({"error": f"Role '{role_name}' não está acessível para o subject '{subject.username}'"}), 403
+
         # Verificar se a role já está associada ao subject
         if role in subject.roles:
             return jsonify({"message": f"Role '{role_name}' já está associada ao subject '{subject.username}'"}), 200
