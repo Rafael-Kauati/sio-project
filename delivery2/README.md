@@ -160,3 +160,12 @@ To create realease a role in the organization of current session :
 
 bash rep_drop_role "session_file" "new_role"
  ```
+
+To add/remove permissions of a role or add/remove access of a role for a give subject  :
+
+```bash
+bash rep_add_permission "session_file" "new_role" "gabs"
+bash rep_remove_permission "session_file" "new_role" "gabs"
+bash rep_add_permission "session_file" "new_role" "DOC_READ"
+bash rep_remove_permission "session_file" "new_role" "DOC_READ"
+ ```

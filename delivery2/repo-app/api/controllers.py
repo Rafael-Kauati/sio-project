@@ -723,6 +723,76 @@ class SessionController:
         return session_key
 
     @staticmethod
+    def add_access_of_role_to_subject(session_key, role_name, username):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Buscar o subject pelo username
+        subject = Subject.query.filter_by(username=username).first()
+        if not subject:
+            return jsonify({"error": f"Subject com username '{username}' não encontrado"}), 404
+
+        # Verificar se o subject pertence à organização
+        if organization not in subject.organizations:
+            return jsonify({"error": f"Subject '{username}' não pertence à organização"}), 400
+
+        # Verificar se a role já está acessível ao subject
+        if role in subject.accessible_roles:
+            return jsonify({"message": f"Role '{role_name}' já está acessível ao subject '{username}'"}), 200
+
+        # Tornar a role acessível ao subject
+        subject.accessible_roles.append(role)
+        db.session.commit()
+
+        return jsonify({"message": f"Role '{role_name}' tornou-se acessível ao subject '{username}' com sucesso!"}), 200
+
+    @staticmethod
+    def add_permission_to_role(session_key, role_name, permission_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Buscar a permissão pela tabela de permissões
+        permission = Permission.query.filter_by(name=permission_name).first()
+        if not permission:
+            return jsonify({"error": f"Permissão '{permission_name}' não encontrada"}), 404
+
+        # Verificar se a permissão já está associada à role
+        if any(rp.permission_id == permission.id for rp in role.permissions):
+            return jsonify({"message": f"Permissão '{permission_name}' já está associada à role '{role_name}'"}), 200
+
+        # Criar associação entre role e permission
+        role_permission = RolePermission(role_id=role.id, permission_id=permission.id)
+        db.session.add(role_permission)
+        db.session.commit()
+        response = f"Permissão '{permission_name}' associada à role '{role_name}' com sucesso!"
+        print(response)
+        return jsonify({"message": f"Permissão '{permission_name}' associada à role '{role_name}' com sucesso!"}), 200
+
+    @staticmethod
     def assume_role(session_key, role_name):
         # Verificar a sessão
         session = check_session(session_key)

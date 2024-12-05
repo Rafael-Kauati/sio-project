@@ -1,0 +1,1 @@
+python3 client.py rep_add_permission $1 $2 $3
