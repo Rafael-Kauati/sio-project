@@ -49,6 +49,66 @@ def check_session(session_key):
     # A sessão foi encontrada e é válida
     return session
 
+@staticmethod
+def has_permission(session_key, username, permission_name):
+    # Verificar a sessão
+    session = check_session(session_key)
+    if session is None:
+        print("[DEBUG] Sessão inválida ou não encontrada.")
+        return False
+
+    # Obter a organização associada à sessão
+    organization = session.organization
+    if not organization:
+        print("[DEBUG] Organização não encontrada para esta sessão.")
+        return False
+
+    # Buscar o subject pelo username
+    subject = Subject.query.filter_by(username=username).first()
+    if not subject:
+        print(f"[DEBUG] Subject '{username}' não encontrado.")
+        return False
+
+    # Verificar se o subject pertence à organização
+    if organization not in subject.organizations:
+        print(f"[DEBUG] Subject '{username}' não pertence à organização '{organization.name}'.")
+        return False
+
+    # Buscar a permissão pelo nome
+    permission = Permission.query.filter_by(name=permission_name).first()
+    if not permission:
+        print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
+        return False
+
+    # Iterar pelas roles associadas ao subject
+    for role in subject.roles:
+        print(f"[DEBUG] Verificando role '{role.name}' para o subject '{subject.username}'.")
+
+        # Verificar se a role pertence à mesma organização
+        if role.organization_id != organization.id:
+            print(f"[DEBUG] Role '{role.name}' não pertence à organização '{organization.name}'. Ignorando.")
+            continue
+
+        # Verificar se a role está suspensa
+        if role.is_suspended:
+            print(f"[DEBUG] Role '{role.name}' está suspensa. Ignorando.")
+            continue
+
+        # Verificar se a role está assumida pelo usuário na sessão
+        if role not in session.roles:
+            print(f"[DEBUG] Role '{role.name}' não está assumida na sessão. Ignorando.")
+            continue
+
+        # Verificar se a role possui a permissão
+        if any(rp.permission_id == permission.id for rp in role.permissions):
+            print(f"[DEBUG] Permissão '{permission_name}' encontrada na role '{role.name}'.")
+            return True
+        else:
+            print(f"[DEBUG] Permissão '{permission_name}' não encontrada na role '{role.name}'.")
+
+    # Se nenhuma role passou nos critérios
+    print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende a todos os critérios.")
+    return False
 
 class DocumentController:
     @staticmethod
