@@ -375,7 +375,7 @@ def get_document_metadata(session_file, document_name):
         return metadata
     else:
         print(f"Erro ao obter metadados: {response.status_code} - {response.text}")
-        response.raise_for_status()
+
 
 
 import requests

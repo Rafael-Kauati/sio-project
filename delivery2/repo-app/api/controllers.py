@@ -62,26 +62,19 @@ def has_permission(session_key, permission_name):
         print("[DEBUG] Subject não encontrado para esta sessão.")
         return False
 
-    # Obter a organização associada à sessão
-    organization = session.organization
-    if not organization:
-        print("[DEBUG] Organização não encontrada para esta sessão.")
-        return False
-
-    # Buscar a permissão pelo nome
+    # Buscar a permissão na tabela de permissões
     permission = Permission.query.filter_by(name=permission_name).first()
     if not permission:
         print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
         return False
 
-    # Iterar pelas roles associadas ao subject
+    # Iterar sobre as roles do subject na organização da sessão
     for role in subject.roles:
         print(f"[DEBUG] Verificando role '{role.name}' para o subject '{subject.username}'.")
-        if role.name == "Manager":
-            return True
-        # Verificar se a role pertence à mesma organização
-        if role.organization_id != organization.id:
-            print(f"[DEBUG] Role '{role.name}' não pertence à organização '{organization.name}'. Ignorando.")
+
+        # Verificar se a role pertence à organização da sessão
+        if role.organization_id != session.organization_id:
+            print(f"[DEBUG] Role '{role.name}' não pertence à organização da sessão. Ignorando.")
             continue
 
         # Verificar se a role está suspensa
@@ -89,21 +82,17 @@ def has_permission(session_key, permission_name):
             print(f"[DEBUG] Role '{role.name}' está suspensa. Ignorando.")
             continue
 
-        # Verificar se a role está assumida pelo usuário na sessão
-        if role not in session.roles:
-            print(f"[DEBUG] Role '{role.name}' não está assumida na sessão. Ignorando.")
-            continue
-
-        # Verificar se a role possui a permissão
+        # Verificar se a role tem a permissão específica
         if any(rp.permission_id == permission.id for rp in role.permissions):
-            print(f"[DEBUG] Permissão '{permission_name}' encontrada na role '{role.name}'.")
+            print(f"[DEBUG] Role '{role.name}' contém a permissão '{permission_name}'.")
             return True
         else:
-            print(f"[DEBUG] Permissão '{permission_name}' não encontrada na role '{role.name}'.")
+            print(f"[DEBUG] Role '{role.name}' não contém a permissão '{permission_name}'.")
 
     # Se nenhuma role passou nos critérios
     print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende a todos os critérios.")
     return False
+
 
 
 class DocumentController:
@@ -298,6 +287,9 @@ class SessionController:
         if existing_nonce.used:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
 
+        if not has_permission(session_key,"DOC_DELETE"):
+            return {"error": "Subject must have DOC_DELETE permission to perform this operation"}, 404
+
         # Marcar o nonce como usado
         existing_nonce.used = True
         db.session.commit()
@@ -377,6 +369,9 @@ class SessionController:
         session = check_session(session_key)
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        if not has_permission(session_key,"DOC_READ"):
+            return jsonify({"error": "Subject must have DOC_READ permission to perform this operation"}), 404
 
         '''# Verifica se o nonce já foi usado para a sessão
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
@@ -793,6 +788,9 @@ class SessionController:
         if not organization:
             return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
 
+        if not has_permission(session_key,"ROLE_MOD"):
+            return {"error": "Subject must have ROLE_MOD permission to perform this operation"}, 404
+
         # Buscar a role na organização
         role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
         if not role:
@@ -829,6 +827,9 @@ class SessionController:
         if not organization:
             return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
 
+        if not has_permission(session_key,"ROLE_MOD"):
+            return {"error": "Subject must have ROLE_MOD permission to perform this operation"}, 404
+
         # Buscar a role na organização
         role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
         if not role:
@@ -863,34 +864,50 @@ class SessionController:
         # Verificar a sessão
         session = check_session(session_key)
         if session is None:
+            print("[DEBUG] Sessão inválida ou não encontrada.")
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
         # Obter a organização associada à sessão
         organization = session.organization
         if not organization:
+            print("[DEBUG] Organização não encontrada para a sessão.")
             return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
 
+        print(f"[DEBUG] Organização ID: {organization.id}, Nome: {organization.name}")
+
+        if not has_permission(session_key,"ROLE_MOD"):
+            return {"error": "Subject must have ROLE_MOD permission to perform this operation"}, 404
+
         # Buscar a role na organização
+        print(f"[DEBUG] Procurando role com nome '{role_name}' e organização ID '{organization.id}'.")
         role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
         if not role:
+            print(
+                f"[DEBUG] Role '{role_name}' não encontrada na organização '{organization.name}' (ID: {organization.id}).")
             return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        print(f"[DEBUG] Role encontrada: {role.name} (ID: {role.id})")
 
         # Buscar a permissão pela tabela de permissões
         permission = Permission.query.filter_by(name=permission_name).first()
         if not permission:
+            print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
             return jsonify({"error": f"Permissão '{permission_name}' não encontrada"}), 404
+
+        print(f"[DEBUG] Permissão encontrada: {permission.name} (ID: {permission.id})")
 
         # Verificar se a permissão já está associada à role
         if any(rp.permission_id == permission.id for rp in role.permissions):
+            print(f"[DEBUG] Permissão '{permission_name}' já está associada à role '{role_name}'.")
             return jsonify({"message": f"Permissão '{permission_name}' já está associada à role '{role_name}'"}), 200
 
-        # Criar associação entre role e permission
+        # Associar a permissão à role
         role_permission = RolePermission(role_id=role.id, permission_id=permission.id)
         db.session.add(role_permission)
         db.session.commit()
-        response = f"Permissão '{permission_name}' associada à role '{role_name}' com sucesso!"
-        print(response)
-        return jsonify({"message": f"Permissão '{permission_name}' associada à role '{role_name}' com sucesso!"}), 200
+
+        print(f"[DEBUG] Permissão '{permission_name}' associada com sucesso à role '{role_name}'.")
+        return jsonify({"message": f"Permissão '{permission_name}' associada com sucesso à role '{role_name}'"}), 200
 
     @staticmethod
     def remove_permission_from_role(session_key, role_name, permission_name):
@@ -903,6 +920,9 @@ class SessionController:
         organization = session.organization
         if not organization:
             return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        if not has_permission(session_key,"ROLE_MOD"):
+            return {"error": "Subject must have ROLE_MOD permission to perform this operation"}, 404
 
         # Buscar a role na organização
         role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
@@ -937,6 +957,9 @@ class SessionController:
         if not organization:
             return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
 
+        if not has_permission(session_key,"ROLE_DOWN"):
+            return {"error": "Subject must have ROLE_DOWN permission to perform this operation"}, 404
+
         # Buscar a role na organização
         role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
         if not role:
@@ -963,6 +986,9 @@ class SessionController:
         organization = session.organization
         if not organization:
             return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        if not has_permission(session_key,"ROLE_UP"):
+            return {"error": "Subject must have ROLE_UP permission to perform this operation"}, 404
 
         # Buscar a role na organização
         role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
@@ -1049,6 +1075,9 @@ class SessionController:
         organization = session.organization
         if not organization:
             return jsonify({"error": "Organização não encontrada"}), 404
+
+        if not has_permission(session_key,"ROLE_NEW"):
+            return {"error": "Subject must have ROLE_NEW permission to perform this operation"}, 404
 
         # Verificar se a role já existe na organização
         role = Role.query.filter_by(name=new_role, organization_id=organization.id).first()
