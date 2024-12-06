@@ -331,6 +331,70 @@ def remove_permission_to_role_route():
         'utf-8')
     return SessionController.remove_permission_from_role(session_key, role, permission)
 
+@main_bp.route('/organization/roles/suspend_role', methods=['POST'])
+def suspend_role_route():
+    logger.info("Request to suspend role received.")
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_role = request.headers.get("role")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing  role"}), 400
+    role = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_role)).decode(
+        'utf-8')
+
+
+    return SessionController.suspend_role(session_key, role)
+
+@main_bp.route('/organization/roles/reactivate_role', methods=['POST'])
+def reactivate_role_route():
+    logger.info("Request to suspend role received.")
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_role = request.headers.get("role")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing  role"}), 400
+    role = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_role)).decode(
+        'utf-8')
+
+
+    return SessionController.reactivate_role(session_key, role)
+
 @main_bp.route('/organization/roles/add_access', methods=['POST'])
 def add_access_of_role_to_subject_route():
     logger.info("Request to update role received.")

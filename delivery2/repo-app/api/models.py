@@ -80,13 +80,15 @@ class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    is_suspended = db.Column(db.Boolean, default=False, nullable=False)  # Indica se a role está suspensa
     permissions = db.relationship('RolePermission', back_populates='role', cascade='all, delete')
     subjects = db.relationship('Subject', secondary=subject_roles, back_populates='roles')
     accessible_subjects = db.relationship('Subject', secondary=accessible_roles, back_populates='accessible_roles')
     organization = db.relationship("Organization", back_populates="roles")
 
     def __repr__(self):
-        return f"<Role(name='{self.name}', organization_id='{self.organization_id}')>"
+        return f"<Role(name='{self.name}', organization_id='{self.organization_id}', is_suspended='{self.is_suspended}')>"
+
 
 
 

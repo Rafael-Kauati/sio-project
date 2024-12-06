@@ -867,6 +867,60 @@ class SessionController:
         return jsonify({"message": f"Permissão '{permission_name}' removida da role '{role_name}' com sucesso!"}), 200
 
     @staticmethod
+    def suspend_role(session_key, role_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Verificar se a role já está suspensa
+        if role.is_suspended:
+            return jsonify({"message": f"Role '{role_name}' já está suspensa"}), 200
+
+        # Suspender a role
+        role.is_suspended = True
+        db.session.commit()
+
+        return jsonify({"message": f"Role '{role_name}' suspensa com sucesso!"}), 200
+
+    @staticmethod
+    def reactivate_role(session_key, role_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Verificar se a role já está ativa
+        if not role.is_suspended:
+            return jsonify({"message": f"Role '{role_name}' já está ativa"}), 200
+
+        # Reativar a role
+        role.is_suspended = False
+        db.session.commit()
+
+        return jsonify({"message": f"Role '{role_name}' reativada com sucesso!"}), 200
+
+    @staticmethod
     def assume_role(session_key, role_name):
         # Verificar a sessão
         session = check_session(session_key)

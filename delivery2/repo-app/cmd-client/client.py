@@ -816,7 +816,8 @@ def parse_args(state):
                                             "rep_add_doc", "rep_get_file","rep_delete_doc",
                                             "rep_subject_credentials", "rep_decrypt_file",
                                             "rep_list_roles", "rep_add_role", "rep_assume_role","rep_drop_role",
-                                            "rep_add_permission", "rep_remove_permission"], help="Command to execute")
+                                            "rep_add_permission", "rep_remove_permission",
+                                            "rep_suspend_role","rep_reactivate_role"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -862,6 +863,14 @@ def parse_args(state):
     if args.command =="rep_drop_role":
         command_parser.add_argument("session_file", help="Path to session file")
         command_parser.add_argument("role", help="role to be released")
+
+    if args.command =="rep_suspend_role":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("role", help="role to be suspended")
+
+    if args.command =="rep_reactivate_role":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("role", help="role to be reactivated")
 
 
 
@@ -1104,6 +1113,86 @@ if args.command == "rep_remove_permission":
 
         response = requests.post(url, headers=headers)
 
+        print(response.json())
+
+if args.command == "rep_suspend_role":
+    session_file = command_args.session_file
+    role = command_args.role
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+        # Definir a URL do servidor
+        url = f"http://{state['REP_ADDRESS']}//organization/roles/suspend_role"
+
+        key = os.urandom(32)
+        nonce = os.urandom(16)
+
+        public_key_path = state['REP_PUB_KEY']
+        encrypted_key = encrypt_with_public_key(public_key_path, key)
+        encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+        # Prepare the JSON for the headers
+        # nonce_header = str(uuid.uuid4())
+        # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+        encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+        encrypted_role = encrypt_with_chacha20(key, nonce, role)
+
+        encryption_header = {
+            "key": encrypted_key.hex(),
+            "nonce": encrypted_nonce.hex()
+        }
+        headers = {
+            # "X-Nonce": encrypted_nonce_header.hex(),
+            "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+            "role": binascii.hexlify(encrypted_role).decode(),
+            "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+        }
+
+        # Enviar a requisição GET com a session_key e nonce no cabeçalho
+        response = requests.post(url, headers=headers)
+
+        # Retornar a resposta em formato JSON
+        print(response.json())
+
+if args.command == "rep_reactivate_role":
+    session_file = command_args.session_file
+    role = command_args.role
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+        # Definir a URL do servidor
+        url = f"http://{state['REP_ADDRESS']}//organization/roles/reactivate_role"
+
+        key = os.urandom(32)
+        nonce = os.urandom(16)
+
+        public_key_path = state['REP_PUB_KEY']
+        encrypted_key = encrypt_with_public_key(public_key_path, key)
+        encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+        # Prepare the JSON for the headers
+        # nonce_header = str(uuid.uuid4())
+        # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+        encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+        encrypted_role = encrypt_with_chacha20(key, nonce, role)
+
+        encryption_header = {
+            "key": encrypted_key.hex(),
+            "nonce": encrypted_nonce.hex()
+        }
+        headers = {
+            # "X-Nonce": encrypted_nonce_header.hex(),
+            "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+            "role": binascii.hexlify(encrypted_role).decode(),
+            "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+        }
+
+        # Enviar a requisição GET com a session_key e nonce no cabeçalho
+        response = requests.post(url, headers=headers)
+
+        # Retornar a resposta em formato JSON
         print(response.json())
 
 if args.command == "rep_assume_role":
