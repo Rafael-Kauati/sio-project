@@ -78,9 +78,9 @@ bash rep_create_session "Org4"  "anon3"  "password"   "credentials" "session_fil
 
 To create a new subject (this command assumes that the credentials are stored as a json content) :
 ```bash
-bash rep_subject_credentials "password2" "credentials"
-bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials"
-bash rep_create_session "Org4"  "gabs"  "password" "credentials" "session_file"
+bash rep_subject_credentials "password2" "credentials2"
+bash rep_add_subject "session_file" "gabs" "gabs" "gabs@gmail.com"  "credentials2"
+bash rep_create_session "Org4"  "gabs"  "password" "credentials2" "session_file"
 ```
 <hr>
 
@@ -144,4 +144,35 @@ To create a new in the organization of current session :
 ```bash
 
 bash rep_add_role "session_file" "new_role"
+ ```
+
+To create assume a role in the organization of current session :
+
+```bash
+
+bash rep_assume_role "session_file" "new_role"
+ ```
+
+
+To create realease a role in the organization of current session :
+
+```bash
+
+bash rep_drop_role "session_file" "new_role"
+ ```
+
+To add/remove permissions of a role or add/remove access of a role for a give subject  :
+
+```bash
+bash rep_add_permission "session_file" "new_role" "gabs"
+bash rep_remove_permission "session_file" "new_role" "gabs"
+bash rep_add_permission "session_file" "new_role" "DOC_READ"
+bash rep_remove_permission "session_file" "new_role" "DOC_READ"
+ ```
+
+To suspend or reactivate a role  :
+
+```bash
+bash rep_suspend_role "session_file" "new_role" 
+bash rep_reactivate_role "session_file" "new_role"
  ```
