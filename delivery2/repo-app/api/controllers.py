@@ -49,29 +49,23 @@ def check_session(session_key):
     # A sessão foi encontrada e é válida
     return session
 
-@staticmethod
-def has_permission(session_key, username, permission_name):
+def has_permission(session_key, permission_name):
     # Verificar a sessão
     session = check_session(session_key)
     if session is None:
         print("[DEBUG] Sessão inválida ou não encontrada.")
         return False
 
+    # Obter o subject associado à sessão
+    subject = session.subject
+    if not subject:
+        print("[DEBUG] Subject não encontrado para esta sessão.")
+        return False
+
     # Obter a organização associada à sessão
     organization = session.organization
     if not organization:
         print("[DEBUG] Organização não encontrada para esta sessão.")
-        return False
-
-    # Buscar o subject pelo username
-    subject = Subject.query.filter_by(username=username).first()
-    if not subject:
-        print(f"[DEBUG] Subject '{username}' não encontrado.")
-        return False
-
-    # Verificar se o subject pertence à organização
-    if organization not in subject.organizations:
-        print(f"[DEBUG] Subject '{username}' não pertence à organização '{organization.name}'.")
         return False
 
     # Buscar a permissão pelo nome
@@ -83,7 +77,8 @@ def has_permission(session_key, username, permission_name):
     # Iterar pelas roles associadas ao subject
     for role in subject.roles:
         print(f"[DEBUG] Verificando role '{role.name}' para o subject '{subject.username}'.")
-
+        if role.name == "Manager":
+            return True
         # Verificar se a role pertence à mesma organização
         if role.organization_id != organization.id:
             print(f"[DEBUG] Role '{role.name}' não pertence à organização '{organization.name}'. Ignorando.")
@@ -109,6 +104,7 @@ def has_permission(session_key, username, permission_name):
     # Se nenhuma role passou nos critérios
     print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende a todos os critérios.")
     return False
+
 
 class DocumentController:
     @staticmethod
@@ -549,6 +545,9 @@ class SessionController:
         session = check_session(session_key)
         if session is None:
             return {"error": "Sessão inválida ou não encontrada", "new_nonce": new_nonce}, 404
+
+        if not has_permission(session_key,"SUBJECT_NEW"):
+            return {"error": "Subject must have SUBJECT_NEW permission to perform this operation", "new_nonce": new_nonce}, 404
 
         # Verificar organização associada à sessão
         organization = session.organization
