@@ -815,7 +815,7 @@ def parse_args(state):
                                             "rep_add_subject", "rep_list_subjects",  # Added missing comma
                                             "rep_add_doc", "rep_get_file","rep_delete_doc",
                                             "rep_subject_credentials", "rep_decrypt_file",
-                                            "rep_list_roles", "rep_add_role", "rep_assume_role","rep_drop_role",
+                                            "rep_list_roles", "rep_add_role", "rep_assume_role","rep_drop_role","rep_list_role_subjects","rep_list_subject_roles","rep_list_role_permissions","rep_list_permission_roles",
                                             "rep_add_permission", "rep_remove_permission",
                                             "rep_suspend_role","rep_reactivate_role"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
@@ -872,7 +872,21 @@ def parse_args(state):
         command_parser.add_argument("session_file", help="Path to session file")
         command_parser.add_argument("role", help="role to be reactivated")
 
+    if args.command =="rep_list_role_subjects":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("role", help="role to be assumed")
 
+    if args.command =="rep_list_subject_roles":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("username", help="user to show his roles")
+
+    if args.command =="rep_list_permission_roles":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("permission", help="permission to show its roles")
+
+    if args.command =="rep_list_role_permissions":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("role", help="role to be assumed")
 
     if args.command =="rep_add_permission":
         command_parser.add_argument("session_file", help="Path to session file")
@@ -1364,6 +1378,174 @@ def list_roles_by_session(session_file):
 if args.command =="rep_list_roles":
     session_file = command_args.session_file
     print(list_roles_by_session(session_file))
+
+# Lista os subjects associados ao role fornecido
+if args.command == "rep_list_role_subjects":
+    session_file = command_args.session_file
+    role = command_args.role
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+    # Definir a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}//sessions/list_role_subjects"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    # nonce_header = str(uuid.uuid4())
+    # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+    encrypted_role =  encrypt_with_chacha20(key, nonce, role)
+
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        # "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "role": binascii.hexlify(encrypted_role).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    # Enviar a requisição GET com a session_key e nonce no cabeçalho
+    response = requests.post(url, headers=headers)
+
+    # Retornar a resposta em formato JSON
+    print(response.json())
+
+# Lista os roles do user fornecido
+if args.command == "rep_list_subject_roles":
+    session_file = command_args.session_file
+    username = command_args.username
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+    # Definir a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}//sessions/list_subject_roles"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    # nonce_header = str(uuid.uuid4())
+    # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+    encrypted_username =  encrypt_with_chacha20(key, nonce, username)
+
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        # "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "username": binascii.hexlify(encrypted_username).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    # Enviar a requisição GET com a session_key e nonce no cabeçalho
+    response = requests.post(url, headers=headers)
+
+    # Retornar a resposta em formato JSON
+    print(response.json())
+
+# Lista as permissões do role fornecido
+if args.command == "rep_list_role_permissions":
+    session_file = command_args.session_file
+    role = command_args.role
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+    # Definir a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}//sessions/list_role_permissions"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    # nonce_header = str(uuid.uuid4())
+    # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+    encrypted_role =  encrypt_with_chacha20(key, nonce, role)
+
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        # "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "role": binascii.hexlify(encrypted_role).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    # Enviar a requisição GET com a session_key e nonce no cabeçalho
+    response = requests.post(url, headers=headers)
+
+    # Retornar a resposta em formato JSON
+    print(response.json())
+
+# Lista os roles da permission fornecida
+if args.command == "rep_list_permission_roles":
+    session_file = command_args.session_file
+    permission = command_args.permission
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+
+    # Definir a URL do servidor
+    url = f"http://{state['REP_ADDRESS']}//sessions/list_permission_roles"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    # Prepare the JSON for the headers
+    # nonce_header = str(uuid.uuid4())
+    # encrypted_nonce_header = encrypt_with_chacha20(key, nonce, nonce_header)
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+    encrypted_permission =  encrypt_with_chacha20(key, nonce, permission)
+
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        # "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "permission": binascii.hexlify(encrypted_permission).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    # Enviar a requisição GET com a session_key e nonce no cabeçalho
+    response = requests.post(url, headers=headers)
+
+    # Retornar a resposta em formato JSON
+    print(response.json())
 
 # Handle the command execution
 if args.command == "rep_list_orgs":

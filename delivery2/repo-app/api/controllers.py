@@ -1118,3 +1118,84 @@ class SessionController:
         else:
             abort(400, description="Role not assigned to the session")
         '''
+
+    @staticmethod
+    def list_role_subjects(session_key, role_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Buscar os subjects da role dentro da organização
+        subjects = role.subjects.query.all()
+        return jsonify([user.username for user in subjects]), 200
+
+    @staticmethod
+    def list_subject_roles(session_key, p_Username):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
+        
+        # Buscar o subject pelo username
+        subject = Subject.query.filter_by(username=p_Username).first()
+        if not subject:
+            return jsonify({"error": f"Subject com username '{p_Username}' não encontrado"}), 404
+
+        # buscar os roles do user
+        userRoles = subject.roles.query.all()
+        return jsonify([role.name for role in userRoles]), 200
+
+    @staticmethod
+    def list_role_permissions(session_key, role_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
+
+        # Buscar a role na organização
+        role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
+        if not role:
+            return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+        
+        # buscar as permissões do role
+        permissions = role.permissions.query.all()
+        return jsonify([permission.name for permission in permissions]), 200
+
+    @staticmethod
+    def list_permission_roles(session_key, permission_name):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter o subject associado à sessão
+        subject = session.subject
+        if not subject:
+            return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
+
+        organization = session.organization
+
+        #
+
+        
