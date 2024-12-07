@@ -1196,6 +1196,6 @@ class SessionController:
 
         organization = session.organization
 
-        #
+        #Obter os roles dentro da organização que contém a permissão dada
 
         
