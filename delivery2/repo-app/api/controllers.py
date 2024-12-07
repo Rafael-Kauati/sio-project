@@ -1194,8 +1194,12 @@ class SessionController:
         if not subject:
             return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
 
-        organization = session.organization
+        # Validar a permissão
+        permission = Permission.query.filter_by(name=permission_name, organization_id=session.organization_id).first()
+        if not permission:
+            return jsonify({"error": f"Permissão '{permission_name}' não encontrada na organização"}), 404
 
         #Obter os roles dentro da organização que contém a permissão dada
-
+        permissionRoles = permission.roles.query.all()
+        return jsonify([role.name for role in permissionRoles]), 200
         
