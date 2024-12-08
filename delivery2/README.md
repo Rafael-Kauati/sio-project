@@ -168,11 +168,17 @@ bash rep_add_permission "session_file" "new_role" "gabs"
 bash rep_remove_permission "session_file" "new_role" "gabs"
 bash rep_add_permission "session_file" "new_role" "DOC_READ"
 bash rep_remove_permission "session_file" "new_role" "DOC_READ"
- ```
+```
 
 To suspend or reactivate a role  :
 
 ```bash
 bash rep_suspend_role "session_file" "new_role" 
 bash rep_reactivate_role "session_file" "new_role"
- ```
+```
+
+To change the ACL of a document  :
+
+```bash
+bash rep_acl_doc "session_file" "test" "+"  "new_role" "DOC_READ" 
+```

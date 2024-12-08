@@ -817,7 +817,7 @@ def parse_args(state):
                                             "rep_subject_credentials", "rep_decrypt_file",
                                             "rep_list_roles", "rep_add_role", "rep_assume_role","rep_drop_role","rep_list_role_subjects","rep_list_subject_roles","rep_list_role_permissions","rep_list_permission_roles",
                                             "rep_add_permission", "rep_remove_permission",
-                                            "rep_suspend_role","rep_reactivate_role"], help="Command to execute")
+                                            "rep_suspend_role","rep_reactivate_role","rep_acl_doc"], help="Command to execute")
     parser.add_argument("-k", '--key', nargs=1, help="Path to the key file")
     parser.add_argument("-r", '--repo', nargs=1, help="Address:Port of the repository")
     parser.add_argument("-v", '--verbose', help="Increase verbosity", action="store_true")
@@ -846,6 +846,13 @@ def parse_args(state):
 
     # Sub-parser para argumentos específicos do comando
     command_parser = argparse.ArgumentParser()
+
+    if args.command == "rep_acl_doc":
+        command_parser.add_argument("session_file", help="Path to session file")
+        command_parser.add_argument("document_name", help="document name")
+        command_parser.add_argument("operation", help="add (+) or remove (-)")
+        command_parser.add_argument("role", help="role to be modified")
+        command_parser.add_argument("permission", help="permission to be modified")
 
     if args.command =="rep_list_roles":
         command_parser.add_argument("session_file", help="Path to session file")
@@ -992,6 +999,48 @@ if 'REP_ADDRESS' not in state:
 if 'REP_PUB_KEY' not in state:
   logger.error("Must set the Repository Public Key")
   sys.exit(-1)
+
+if args.command == "rep_acl_doc":
+    session_file = command_args.session_file
+    with open(session_file, 'r') as file:
+        session_data = json.load(file)
+        session_key = session_data["session_context"]["session_token"]
+    doc = command_args.document_name
+    op = command_args.operation
+    role = command_args.role
+    permission = command_args.permission
+    print(f"Requesting modifying role {role} to {op} permission {permission} at the ACL of document {doc}")
+    url = f"http://{state['REP_ADDRESS']}//organization/document/acl"
+
+    key = os.urandom(32)
+    nonce = os.urandom(16)
+    public_key_path = state['REP_PUB_KEY']
+    encrypted_key = encrypt_with_public_key(public_key_path, key)
+    encrypted_nonce = encrypt_with_public_key(public_key_path, nonce)
+
+    encrypted_session_key = encrypt_with_chacha20(key, nonce, session_key)
+    encrypted_role = encrypt_with_chacha20(key, nonce, role)
+    encrypted_permission = encrypt_with_chacha20(key, nonce, permission)
+    encrypted_doc = encrypt_with_chacha20(key, nonce, doc)
+    encrypted_op = encrypt_with_chacha20(key, nonce, op)
+
+    encryption_header = {
+        "key": encrypted_key.hex(),
+        "nonce": encrypted_nonce.hex()
+    }
+    headers = {
+        # "X-Nonce": encrypted_nonce_header.hex(),
+        "X-Session-Key": binascii.hexlify(encrypted_session_key).decode(),
+        "role": binascii.hexlify(encrypted_role).decode(),
+        "permission": binascii.hexlify(encrypted_permission).decode(),
+        "document_name": binascii.hexlify(encrypted_doc).decode(),
+        "operation": binascii.hexlify(encrypted_op).decode(),
+        "X-Encrypted-Key-Info": json.dumps(encryption_header)  # Send JSON as a string in the header
+    }
+
+    response = requests.post(url, headers=headers)
+
+    print(response.json())
 
 if args.command == "rep_add_permission":
     session_file = command_args.session_file

@@ -777,6 +777,86 @@ class SessionController:
         return session_key
 
     @staticmethod
+    def change_doc_acl(session_key, role_name, permission_name, document_name, operation):
+        # Verificar a sessão
+        session = check_session(session_key)
+        if session is None:
+            print("[DEBUG] Sessão inválida ou não encontrada.")
+            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+
+        # Obter a organização associada à sessão
+        organization = session.organization
+        if not organization:
+            print("[DEBUG] Organização não encontrada para a sessão.")
+            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+
+        # Buscar o documento pelo nome e organização
+        document = Document.query.filter_by(name=document_name, organization_id=organization.id).first()
+        if not document:
+            print(f"[DEBUG] Documento '{document_name}' não encontrado na organização '{organization.name}'.")
+            return jsonify({"error": f"Documento '{document_name}' não encontrado"}), 404
+
+        # Buscar a role pelo nome e organização
+        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+        if not role:
+            print(f"[DEBUG] Role '{role_name}' não encontrada na organização '{organization.name}'.")
+            return jsonify({"error": f"Role '{role_name}' não encontrada"}), 404
+
+        # Buscar a permissão pelo nome
+        permission = Permission.query.filter_by(name=permission_name).first()
+        if not permission:
+            print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
+            return jsonify({"error": f"Permissão '{permission_name}' não encontrada"}), 404
+
+        # Validar a operação
+        if operation not in ["+", "-"]:
+            print(f"[DEBUG] Operação inválida: {operation}")
+            return jsonify({"error": "Operação inválida. Use '+' para adicionar ou '-' para remover"}), 400
+
+        # Inicializar ou obter o ACL do documento
+        acl = document.acl if document.acl else {}
+
+        # Garantir que a role esteja no ACL
+        if role.name not in acl:
+            print(f"[DEBUG] Role '{role_name}' não existe no ACL do documento. Adicionando.")
+            acl[role.name] = []
+
+        if operation == "+":
+            # Adicionar permissão ao ACL
+            if permission_name not in acl[role.name]:
+                print(f"[DEBUG] Adicionando permissão '{permission_name}' à role '{role_name}' no ACL do documento.")
+                acl[role.name].append(permission_name)
+            else:
+                print(f"[DEBUG] Permissão '{permission_name}' já existe para a role '{role_name}' no ACL.")
+
+            # Adicionar permissão na tabela RolePermission, se não existir
+            if not any(rp.permission_id == permission.id for rp in role.permissions):
+                print(f"[DEBUG] Criando RolePermission para permissão '{permission_name}' e role '{role_name}'.")
+                role_permission = RolePermission(role_id=role.id, permission_id=permission.id)
+                db.session.add(role_permission)
+
+        elif operation == "-":
+            # Remover permissão do ACL
+            if permission_name in acl[role.name]:
+                print(f"[DEBUG] Removendo permissão '{permission_name}' da role '{role_name}' no ACL do documento.")
+                acl[role.name].remove(permission_name)
+            else:
+                print(f"[DEBUG] Permissão '{permission_name}' não encontrada para a role '{role_name}' no ACL.")
+
+            # Remover permissão na tabela RolePermission, se existir
+            role_permission = RolePermission.query.filter_by(role_id=role.id, permission_id=permission.id).first()
+            if role_permission:
+                print(f"[DEBUG] Removendo RolePermission para permissão '{permission_name}' e role '{role_name}'.")
+                db.session.delete(role_permission)
+
+        # Atualizar o ACL do documento
+        document.acl = acl
+        db.session.commit()
+
+        print(f"[DEBUG] ACL do documento '{document.name}' atualizado com sucesso.")
+        return jsonify({"message": "ACL atualizado com sucesso"}), 200
+
+    @staticmethod
     def add_access_of_role_to_subject(session_key, role_name, username):
         # Verificar a sessão
         session = check_session(session_key)
