@@ -582,6 +582,12 @@ def upload_document(data):
             with open(data['session_file'], 'w') as session_file_handle:
                 json.dump(session_data, session_file_handle, indent=4)
     else:
+        response_data = response.json()
+        new_nonce = response_data.get("new_nonce")
+        if new_nonce:
+            session_data["session_context"]["nonce"] = new_nonce
+            with open(data['session_file'], 'w') as session_file_handle:
+                json.dump(session_data, session_file_handle, indent=4)
         print(response.json())
         return 1
 
@@ -675,7 +681,7 @@ def delete_document(session_file, document_name):
     response_data = response.json()
     print(response_data)
     new_nonce = response_data.get("new_nonce")
-
+    print(f"new nonce received : {new_nonce}")
     if new_nonce:
         session_data["session_context"]["nonce"] = new_nonce
         with open(session_file, 'w') as session_file_handle:

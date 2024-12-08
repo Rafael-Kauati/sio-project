@@ -350,9 +350,6 @@ class SessionController:
         if existing_nonce.used:
             return jsonify({"error": "Nonce já utilizado. Replay detectado!"}), 400
 
-        if not has_permission(session_key,"DOC_DELETE"):
-            return {"error": "Subject must have DOC_DELETE permission to perform this operation"}, 404
-
         # Marcar o nonce como usado
         existing_nonce.used = True
         db.session.commit()
@@ -385,6 +382,12 @@ class SessionController:
 
         if not document:
             return {"success": False, "message": "Document not found",
+                    "new_nonce": new_nonce}, 404
+
+        if not has_permission_in_document(session_key, "DOC_DELETE", document_name):
+            print(f"\nnew nonce : {new_nonce}")
+            return {"success": False,
+                    "message": "Subject must have DOC_DELETE permission to perform this operation and the Role must be present in the ACL of the document",
                     "new_nonce": new_nonce}, 404
 
         # Verificar se os dados de criptografia estão presentes
@@ -525,6 +528,11 @@ class SessionController:
         new_nonce_entry = Nonce(nonce=new_nonce, used=False)
         db.session.add(new_nonce_entry)
         db.session.commit()
+
+        if not has_permission(session_key, "DOC_NEW"):
+            print(f"\nnew nonce : {new_nonce}")
+            return {"message": "Subject must have DOC_NEW permission to perform this operation",
+                    "new_nonce": new_nonce}, 404
 
         organization = session.organization
         subject = session.subject
