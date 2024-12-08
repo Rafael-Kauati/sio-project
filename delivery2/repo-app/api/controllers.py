@@ -93,6 +93,69 @@ def has_permission(session_key, permission_name):
     print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende a todos os critérios.")
     return False
 
+def has_permission_in_document(session_key, permission_name, document_name):
+    # Verificar a sessão
+    session = check_session(session_key)
+    if session is None:
+        print("[DEBUG] Sessão inválida ou não encontrada.")
+        return False
+
+    # Obter o subject associado à sessão
+    subject = session.subject
+    if not subject:
+        print("[DEBUG] Subject não encontrado para esta sessão.")
+        return False
+
+    # Buscar a permissão na tabela de permissões
+    permission = Permission.query.filter_by(name=permission_name).first()
+    if not permission:
+        print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
+        return False
+
+    # Buscar o documento pelo nome e organização
+    document = Document.query.filter_by(name=document_name, organization_id=session.organization_id).first()
+    if not document:
+        print(f"[DEBUG] Documento '{document_name}' não encontrado na organização da sessão.")
+        return False
+
+    # Verificar o ACL do documento
+    acl = document.acl if document.acl else {}
+
+    # Iterar sobre as roles do subject na organização da sessão
+    for role in subject.roles:
+        print(f"[DEBUG] Verificando role '{role.name}' para o subject '{subject.username}'.")
+
+        if role.name == "Manager":
+            return True
+
+        # Verificar se a role pertence à organização da sessão
+        if role.organization_id != session.organization_id:
+            print(f"[DEBUG] Role '{role.name}' não pertence à organização da sessão. Ignorando.")
+            continue
+
+        # Verificar se a role está suspensa
+        if role.is_suspended:
+            print(f"[DEBUG] Role '{role.name}' está suspensa. Ignorando.")
+            continue
+
+        # Verificar se a role tem a permissão específica
+        if any(rp.permission_id == permission.id for rp in role.permissions):
+            print(f"[DEBUG] Role '{role.name}' contém a permissão '{permission_name}'.")
+
+            # Verificar se a role está presente no ACL do documento
+            if role.name in acl:
+                print(f"[DEBUG] Role '{role.name}' está presente no ACL do documento '{document_name}'.")
+                return True
+            else:
+                print(f"[DEBUG] Role '{role.name}' não está presente no ACL do documento '{document_name}'.")
+        else:
+            print(f"[DEBUG] Role '{role.name}' não contém a permissão '{permission_name}'.")
+
+    # Se nenhuma role passou nos critérios
+    print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende a todos os critérios.")
+    return False
+
+
 
 
 class DocumentController:
@@ -370,8 +433,8 @@ class SessionController:
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
-        if not has_permission(session_key,"DOC_READ"):
-            return jsonify({"error": "Subject must have DOC_READ permission to perform this operation"}), 404
+        if not has_permission_in_document(session_key,"DOC_READ", document_name):
+            return jsonify({"error": "Subject must have DOC_READ permission to perform this operation and the Role must be present in the ACL of the document"}), 404
 
         '''# Verifica se o nonce já foi usado para a sessão
         existing_nonce = Nonce.query.filter_by(nonce=nonce).first()
