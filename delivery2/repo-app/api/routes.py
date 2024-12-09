@@ -218,6 +218,141 @@ def release_role_route():
     print("role to be released : ", role)
     return SessionController.drop_role(session_key, role)
 
+# params [sessionFile] [role]
+@main_bp.route('/sessions/list_role_subjects', methods=['GET'])
+def list_role_subjects_route():
+
+    logger.info("Request to list role subjects received.")
+    
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_role = request.headers.get("role")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing role"}), 400
+    role = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_role)).decode(
+        'utf-8')
+    print("role : ", role)
+    return SessionController.list_role_subjects(session_key, role)
+
+# params [sessionFile] [username]
+@main_bp.route('/sessions/list_subject_roles', methods=['GET'])
+def list_subject_roles_route():
+
+    logger.info("Request to list subject roles received.")
+    
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_username = request.headers.get("username")
+    if not enc_username:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing username"}), 400
+    username = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_username)).decode(
+        'utf-8')
+    print("username : ", username)
+    return SessionController.list_subject_roles(session_key, username)
+
+# params [sessionFile] [role]
+@main_bp.route('/sessions/list_role_permissions', methods=['GET'])
+def list_role_permissions_route():
+
+    logger.info("Request to list role permissions received.")
+
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_role = request.headers.get("role")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing role"}), 400
+    role = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_role)).decode(
+        'utf-8')
+    print("role : ", role)
+    return SessionController.list_role_permissions(session_key, role)
+
+# params [sessionFile] [permission]
+@main_bp.route('/sessions/list_permission_roles', methods=['GET'])
+def list_permission_roles_route():
+
+    logger.info("Request to list role permissions received.")
+
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_permission = request.headers.get("permission")
+    if not enc_permission:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing permission"}), 400
+    permission = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_permission)).decode(
+        'utf-8')
+    print("permission : ", permission)
+    return SessionController.list_permission_roles(session_key, permission)
 
 @main_bp.route('/sessions/subjects', methods=['GET'])
 def get_subjects_by_session_key_route():
@@ -256,6 +391,62 @@ def get_subjects_by_session_key_route():
 
     # Chama o controlador para processar a lógica
     return SessionController.get_subjects_by_session_key(session_key)
+
+@main_bp.route('/organization/document/acl', methods=['POST'])
+def change_doc_acl():
+    logger.info("Request to update document ACL received.")
+    encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")
+    if not encrypted_key_info:
+        return jsonify({"error": "Encrypted key info is missing"}), 400
+    key_info = json.loads(encrypted_key_info)
+    private_key_path = "private_key.pem"
+
+    # Descriptografar a chave ChaCha20 e o nonce
+    encrypted_key = binascii.unhexlify(key_info["key"])
+    encrypted_nonce = binascii.unhexlify(key_info["nonce"])
+    chacha_key = decrypt_with_private_key(private_key_path, encrypted_key)
+    chacha_nonce = decrypt_with_private_key(private_key_path, encrypted_nonce)
+
+    encrypted_session_key = request.headers.get("X-Session-Key")
+    if not encrypted_session_key:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing 'X-Session-Key' or  header"}), 400
+    session_key = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(encrypted_session_key)).decode(
+        'utf-8')
+
+    enc_role = request.headers.get("role")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing  role"}), 400
+    role = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_role)).decode(
+        'utf-8')
+    print(f"Role : {role}")
+
+    enc_perm = request.headers.get("permission")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing permission"}), 400
+    permission = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_perm)).decode(
+        'utf-8')
+    print(f"Permission : {permission}")
+
+    enc_doc_name = request.headers.get("document_name")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing permission"}), 400
+    document = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_doc_name)).decode(
+        'utf-8')
+    print(f"document : {document}")
+
+    enc_operation = request.headers.get("operation")
+    if not enc_role:
+        # Retorna um erro se os cabeçalhos não estiverem presentes
+        return jsonify({"error": "Missing permission"}), 400
+    operation = decrypt_with_chacha20(chacha_key, chacha_nonce, binascii.unhexlify(enc_operation)).decode(
+        'utf-8')
+    print(f"operation : {operation}")
+    return SessionController.change_doc_acl(session_key, role, permission, document, operation)
+
 
 @main_bp.route('/organization/roles/add_permission', methods=['POST'])
 def add_permission_to_role_route():

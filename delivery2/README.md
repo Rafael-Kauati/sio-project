@@ -166,13 +166,19 @@ To add/remove permissions of a role or add/remove access of a role for a give su
 ```bash
 bash rep_add_permission "session_file" "new_role" "gabs"
 bash rep_remove_permission "session_file" "new_role" "gabs"
-bash rep_add_permission "session_file" "new_role" "DOC_READ"
-bash rep_remove_permission "session_file" "new_role" "DOC_READ"
- ```
+bash rep_add_permission "session_file" "new_role" "SUBJECT_NEW"
+bash rep_remove_permission "session_file" "new_role" "SUBJECT_NEW"
+```
 
 To suspend or reactivate a role  :
 
 ```bash
 bash rep_suspend_role "session_file" "new_role" 
 bash rep_reactivate_role "session_file" "new_role"
- ```
+```
+
+To change the ACL of a document  :
+
+```bash
+bash rep_acl_doc "session_file" "test" "+"  "new_role" "DOC_READ" 
+```
