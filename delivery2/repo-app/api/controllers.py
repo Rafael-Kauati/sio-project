@@ -34,6 +34,11 @@ def check_session(session_key):
             algorithms=["HS256"]
         )
     except jwt.ExpiredSignatureError:
+        # Remove a sessão se o token JWT estiver expirado
+        session = Session.query.filter_by(session_key=session_key).first()
+        if session:
+            db.session.delete(session)
+            db.session.commit()
         return None, "Session token has expired."
     except jwt.InvalidTokenError as e:
         return None, f"Invalid session token: {str(e)}"
@@ -42,12 +47,18 @@ def check_session(session_key):
     session = Session.query.filter_by(session_key=session_key).first()
     if not session:
         return None  # Se não encontrar a sessão, retorna None
+
+    # Verificar se a sessão é válida
     is_valid = is_session_valid(session)
     if not is_valid:
-        return None  # Se estiver expirada
+        # Se a sessão estiver expirada, removê-la do banco de dados
+        db.session.delete(session)
+        db.session.commit()
+        return None  # Sessão inválida ou expirada
 
     # A sessão foi encontrada e é válida
     return session
+
 
 def has_permission(session_key, permission_name):
     # Verificar a sessão
@@ -800,12 +811,19 @@ class SessionController:
 
         session_key = jwt.encode(payload, SessionController.SECRET_KEY, algorithm="HS256")
 
-        # Save the session to the database
+        # Obter a organização associada à sessão
         organization_name = data.get("organization_name")
         organization = Organization.query.filter_by(name=organization_name).first()
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
+        # Antes de criar a nova sessão, deletar as sessões anteriores do mesmo subject na mesma organização
+        existing_sessions = Session.query.filter_by(subject_id=subject.id, organization_id=organization.id).all()
+        for session in existing_sessions:
+            db.session.delete(session)
+        db.session.commit()
+
+        # Save the session to the database
         new_session = Session(
             session_key=session_key,  # Store the JWT here
             password=data.get("password"),
