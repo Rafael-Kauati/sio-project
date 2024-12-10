@@ -1,0 +1,10 @@
+{
+    "message": "Session created successfully",
+    "session_context": {
+        "nonce": "gsg4PkF3QnugtyyuIOrAQz4VUii9ahkH",
+        "organization_name": "Org4",
+        "session_id": 8,
+        "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uX2lkIjo4LCJvcmdhbml6YXRpb25fbmFtZSI6Ik9yZzQiLCJzdWJqZWN0X3VzZXJuYW1lIjoiYW5vbjMiLCJpYXQiOjE3MzM2NzIwMjIsImV4cCI6MTczMzY3MjkyMiwianRpIjoiZjY0Zjg4OTItNzk4YS00YTZiLTliN2YtYzM5ODk3ODE4YTFjIn0.uuU3FbrGgxgzPlcPRB0O0z_upp6s0aHOazFHaXCVIns",
+        "subject_username": "anon3"
+    }
+}

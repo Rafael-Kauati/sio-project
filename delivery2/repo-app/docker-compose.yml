@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:latest
+    restart: always
+    container_name: repo-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: repository
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  pgadmin:
+    image: 'docker.io/dpage/pgadmin4:latest'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "email@mail.com"
+      PGADMIN_DEFAULT_PASSWORD: "secret"
+    ports:
+      - 8000:80
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin/
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  

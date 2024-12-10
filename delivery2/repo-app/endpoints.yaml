@@ -1,0 +1,276 @@
+openapi: 3.0.0
+info:
+  title: API Documentation
+  version: 1.0.0
+  description: API for managing organizations, sessions, roles, documents, and file downloads.
+
+paths:
+  /organizations:
+    post:
+      summary: Create an organization
+      tags:
+        - Organization
+      responses:
+        '200':
+          description: Organization created successfully.
+    get:
+      summary: List organizations
+      tags:
+        - Organization
+      responses:
+        '200':
+          description: List of organizations.
+
+  /sessions:
+    post:
+      summary: Create a session
+      tags:
+        - Session
+      responses:
+        '200':
+          description: Session created successfully.
+
+  /download/{filename}:
+    get:
+      summary: Download a file
+      tags:
+        - Files
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+          description: Name of the file to download.
+      responses:
+        '200':
+          description: File downloaded successfully.
+        '404':
+          description: File not found.
+
+  /sessions/assume_role:
+    post:
+      summary: Assume a role in a session
+      tags:
+        - Session
+      responses:
+        '200':
+          description: Role assumed successfully.
+
+  /sessions/release_role:
+    post:
+      summary: Release a role in a session
+      tags:
+        - Session
+      responses:
+        '200':
+          description: Role released successfully.
+
+  /sessions/{session_key}/roles:
+    get:
+      summary: List roles in a session
+      tags:
+        - Session
+      parameters:
+        - in: path
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+      responses:
+        '200':
+          description: List of roles for the session.
+
+  /sessions/{session_key}/subjects:
+    get:
+      summary: Get subjects by session key
+      tags:
+        - Session
+      parameters:
+        - in: path
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+      responses:
+        '200':
+          description: List of subjects for the session.
+
+  /organization/{session_key}/org/roles:
+    get:
+      summary: Get roles for organization by session key
+      tags:
+        - Organization
+      parameters:
+        - in: path
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+      responses:
+        '200':
+          description: List of roles for the organization.
+
+  /sessions/{session_key}/documents:
+    get:
+      summary: Get documents by session key
+      tags:
+        - Document
+      parameters:
+        - in: path
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+        - in: query
+          name: username
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: date
+          required: false
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: filter_type
+          required: false
+          schema:
+            type: string
+            enum: [all, more_recent, older]
+            default: all
+      responses:
+        '200':
+          description: List of documents for the session.
+
+  /add_subject:
+    post:
+      summary: Add a subject to an organization
+      tags:
+        - Session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_key:
+                  type: string
+                username:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+                public_key:
+                  type: string
+              required: [session_key, username, name, email, public_key]
+      responses:
+        '201':
+          description: Subject added successfully.
+        '400':
+          description: Missing required fields.
+
+  /add_document:
+    post:
+      summary: Add a document to an organization
+      tags:
+        - Document
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                session_key:
+                  type: string
+                document_name:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+              required: [session_key, document_name, file]
+      responses:
+        '201':
+          description: Document added successfully.
+        '400':
+          description: Missing required fields.
+
+  /document/metadata:
+    get:
+      summary: Get document metadata
+      tags:
+        - Document
+      parameters:
+        - in: header
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+        - in: query
+          name: document_name
+          required: true
+          schema:
+            type: string
+          description: Name of the document.
+      responses:
+        '200':
+          description: Metadata of the document.
+        '400':
+          description: Missing document_name parameter.
+
+  /download_document/{session_key}/{document_name}:
+    get:
+      summary: Download a document
+      tags:
+        - Document
+      parameters:
+        - in: path
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+        - in: path
+          name: document_name
+          required: true
+          schema:
+            type: string
+          description: Name of the document.
+      responses:
+        '200':
+          description: Document downloaded successfully.
+        '404':
+          description: Document not found.
+
+  /delete_document/{session_key}/{document_name}:
+    delete:
+      summary: Delete a document
+      tags:
+        - Document
+      parameters:
+        - in: path
+          name: session_key
+          required: true
+          schema:
+            type: string
+          description: Session key.
+        - in: path
+          name: document_name
+          required: true
+          schema:
+            type: string
+          description: Name of the document.
+      responses:
+        '200':
+          description: Document deleted successfully.
+        '400':
+          description: Failed to delete the document.
