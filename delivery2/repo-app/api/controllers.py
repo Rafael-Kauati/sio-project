@@ -814,7 +814,7 @@ class SessionController:
 
         # Generate JWT as session_key
         created_at = datetime.now(timezone.utc)
-        expiration_time = created_at + timedelta(minutes=15)  # Token valid for 15 minutes
+        expiration_time = created_at + timedelta(minutes=30)  # Token valid for 15 minutes
         payload = {
             "session_id": new_auth_id.id,  # Unique session identifier
             "organization_name": data.get("organization_name"),  # Organization name
