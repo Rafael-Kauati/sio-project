@@ -19,7 +19,7 @@ import os
 import jwt
 
 from flask import request
-
+from sqlalchemy.orm.attributes import flag_modified
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import base64
@@ -117,10 +117,10 @@ def has_permission_in_document(session_key, permission_name, document_name):
         print("[DEBUG] Subject não encontrado para esta sessão.")
         return False
 
-    # Buscar a permissão na tabela de permissões
-    permission = Permission.query.filter_by(name=permission_name).first()
-    if not permission:
-        print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
+    # Validar o nome da permissão
+    valid_permissions = ["DOC_DELETE", "DOC_READ"]
+    if permission_name not in valid_permissions:
+        print(f"[DEBUG] Permissão '{permission_name}' não é válida. Use {valid_permissions}.")
         return False
 
     # Buscar o documento pelo nome e organização
@@ -130,13 +130,25 @@ def has_permission_in_document(session_key, permission_name, document_name):
         return False
 
     # Verificar o ACL do documento
-    acl = document.acl if document.acl else {}
+    acl = document.acl or {}
+    print(f"\n[DEBUG] Document ACL: {acl}")
+
+    # Certificar-se de que a permissão existe no ACL
+    if permission_name not in acl:
+        print(f"[DEBUG] Permissão '{permission_name}' não encontrada no ACL do documento '{document_name}'.")
+        return False
+
+    # Obter as roles associadas à permissão no ACL
+    allowed_roles = acl[permission_name]
+    print(f"[DEBUG] roles no ACL {allowed_roles} ")
 
     # Iterar sobre as roles do subject na organização da sessão
     for role in subject.roles:
         print(f"[DEBUG] Verificando role '{role.name}' para o subject '{subject.username}'.")
 
+        # Conceder permissão automaticamente se a role for "Manager"
         if role.name == "Manager":
+            print("[DEBUG] Role 'Manager' tem acesso total ao documento.")
             return True
 
         # Verificar se a role pertence à organização da sessão
@@ -149,22 +161,25 @@ def has_permission_in_document(session_key, permission_name, document_name):
             print(f"[DEBUG] Role '{role.name}' está suspensa. Ignorando.")
             continue
 
-        # Verificar se a role tem a permissão específica
-        if any(rp.permission_id == permission.id for rp in role.permissions):
-            print(f"[DEBUG] Role '{role.name}' contém a permissão '{permission_name}'.")
+        # Verificar se a role contém a permissão necessária
+        role_permissions = [perm.permission.name for perm in role.permissions]
+        print(f"[DEBUG] permissions  : {role_permissions}")
+        if permission_name not in role_permissions:
+            print(f"[DEBUG] Role '{role.name}' não contém a permissão '{permission_name}'. Ignorando.")
+            continue
 
-            # Verificar se a role está presente no ACL do documento
-            if role.name in acl:
-                print(f"[DEBUG] Role '{role.name}' está presente no ACL do documento '{document_name}'.")
-                return True
-            else:
-                print(f"[DEBUG] Role '{role.name}' não está presente no ACL do documento '{document_name}'.")
-        else:
-            print(f"[DEBUG] Role '{role.name}' não contém a permissão '{permission_name}'.")
+        # Verificar se a role está presente no ACL do documento para a permissão
+        if role.name in allowed_roles:
+            print(f"[DEBUG] Role '{role.name}' está associada à permissão '{permission_name}' no ACL do documento '{document_name}'.")
+            return True
 
-    # Se nenhuma role passou nos critérios
-    print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende a todos os critérios.")
+        print(f"[DEBUG] Role '{role.name}' não está associada à permissão '{permission_name}' no ACL do documento '{document_name}'.")
+
+    # Se nenhuma role do subject passou nos critérios
+    print(f"[DEBUG] Nenhuma role do subject '{subject.username}' atende aos critérios para a permissão '{permission_name}' no documento '{document_name}'.")
     return False
+
+
 
 
 
@@ -867,83 +882,62 @@ class SessionController:
 
     @staticmethod
     def change_doc_acl(session_key, role_name, permission_name, document_name, operation):
-        # Verificar a sessão
-        session = check_session(session_key)
-        if session is None:
-            print("[DEBUG] Sessão inválida ou não encontrada.")
-            return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
+        try:
+            # Verificar a sessão
+            session = check_session(session_key)
+            if session is None:
+                return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
-        # Obter a organização associada à sessão
-        organization = session.organization
-        if not organization:
-            print("[DEBUG] Organização não encontrada para a sessão.")
-            return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
+            # Obter a organização associada à sessão
+            organization = session.organization
+            if not organization:
+                return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
 
-        # Buscar o documento pelo nome e organização
-        document = Document.query.filter_by(name=document_name, organization_id=organization.id).first()
-        if not document:
-            print(f"[DEBUG] Documento '{document_name}' não encontrado na organização '{organization.name}'.")
-            return jsonify({"error": f"Documento '{document_name}' não encontrado"}), 404
+            # Buscar o documento pelo nome e organização
+            document = Document.query.filter_by(name=document_name, organization_id=organization.id).first()
+            if not document:
+                return jsonify({"error": f"Documento '{document_name}' não encontrado"}), 404
 
-        # Buscar a role pelo nome e organização
-        role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
-        if not role:
-            print(f"[DEBUG] Role '{role_name}' não encontrada na organização '{organization.name}'.")
-            return jsonify({"error": f"Role '{role_name}' não encontrada"}), 404
+            # Buscar a role pelo nome e organização
+            role = Role.query.filter_by(name=role_name, organization_id=organization.id).first()
+            if not role:
+                return jsonify({"error": f"Role '{role_name}' não encontrada"}), 404
 
-        # Buscar a permissão pelo nome
-        permission = Permission.query.filter_by(name=permission_name).first()
-        if not permission:
-            print(f"[DEBUG] Permissão '{permission_name}' não encontrada.")
-            return jsonify({"error": f"Permissão '{permission_name}' não encontrada"}), 404
+            # Validar a permissão
+            valid_permissions = ["DOC_DELETE", "DOC_READ"]
+            if permission_name not in valid_permissions:
+                return jsonify({"error": f"Permissão '{permission_name}' não é válida. Use {valid_permissions}."}), 400
 
-        # Validar a operação
-        if operation not in ["+", "-"]:
-            print(f"[DEBUG] Operação inválida: {operation}")
-            return jsonify({"error": "Operação inválida. Use '+' para adicionar ou '-' para remover"}), 400
+            # Validar a operação
+            if operation not in ["+", "-"]:
+                return jsonify({"error": "Operação inválida. Use '+' para adicionar ou '-' para remover"}), 400
 
-        # Inicializar ou obter o ACL do documento
-        acl = document.acl if document.acl else {}
+            # Inicializar ou obter o ACL do documento
+            acl = document.acl or {}
 
-        # Garantir que a role esteja no ACL
-        if role.name not in acl:
-            print(f"[DEBUG] Role '{role_name}' não existe no ACL do documento. Adicionando.")
-            acl[role.name] = []
+            # Garantir que a permissão existe no ACL
+            acl.setdefault(permission_name, [])
 
-        if operation == "+":
-            # Adicionar permissão ao ACL
-            if permission_name not in acl[role.name]:
-                print(f"[DEBUG] Adicionando permissão '{permission_name}' à role '{role_name}' no ACL do documento.")
-                acl[role.name].append(permission_name)
-            else:
-                print(f"[DEBUG] Permissão '{permission_name}' já existe para a role '{role_name}' no ACL.")
+            if operation == "+":
+                if role_name not in acl[permission_name]:
+                    acl[permission_name].append(role_name)
+            elif operation == "-":
+                if role_name in acl[permission_name]:
+                    acl[permission_name].remove(role_name)
 
-            # Adicionar permissão na tabela RolePermission, se não existir
-            if not any(rp.permission_id == permission.id for rp in role.permissions):
-                print(f"[DEBUG] Criando RolePermission para permissão '{permission_name}' e role '{role_name}'.")
-                role_permission = RolePermission(role_id=role.id, permission_id=permission.id)
-                db.session.add(role_permission)
+            print(f"\n[DEBUG] ACL antes de salvar: {acl}")
 
-        elif operation == "-":
-            # Remover permissão do ACL
-            if permission_name in acl[role.name]:
-                print(f"[DEBUG] Removendo permissão '{permission_name}' da role '{role_name}' no ACL do documento.")
-                acl[role.name].remove(permission_name)
-            else:
-                print(f"[DEBUG] Permissão '{permission_name}' não encontrada para a role '{role_name}' no ACL.")
+            # Atualizar o ACL do documento e marcar como modificado
+            document.acl = acl
+            flag_modified(document, "acl")  # Informar ao SQLAlchemy que o campo foi modificado
+            db.session.commit()
 
-            # Remover permissão na tabela RolePermission, se existir
-            role_permission = RolePermission.query.filter_by(role_id=role.id, permission_id=permission.id).first()
-            if role_permission:
-                print(f"[DEBUG] Removendo RolePermission para permissão '{permission_name}' e role '{role_name}'.")
-                db.session.delete(role_permission)
+            print(f"[DEBUG] ACL persistido no banco: {document.acl}")
+            return jsonify({"message": f"ACL atualizado com {document.acl}"}), 200
 
-        # Atualizar o ACL do documento
-        document.acl = acl
-        db.session.commit()
-
-        print(f"[DEBUG] ACL do documento '{document.name}' atualizado com sucesso.")
-        return jsonify({"message": "ACL atualizado com sucesso"}), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": f"Erro ao atualizar o ACL: {str(e)}"}), 500
 
     @staticmethod
     def add_access_of_role_to_subject(session_key, role_name, username):
