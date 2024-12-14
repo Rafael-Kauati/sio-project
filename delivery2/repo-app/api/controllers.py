@@ -1340,10 +1340,25 @@ class SessionController:
         role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
         if not role:
             return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
-        
-        # buscar as permissões do role
-        permissions = role.permissions.query.all()
-        return jsonify([permission.name for permission in permissions]), 200
+
+        # Buscar permissões diretamente associadas à role
+        role_permissions = {rp.permission.name for rp in role.permissions}
+
+        # Buscar documentos da organização
+        documents = Document.query.filter_by(organization_id=session.organization_id).all()
+
+        # Buscar permissões do ACL
+        acl_permissions = set()
+        for document in documents:
+            if document.acl:
+                for permission, roles in document.acl.items():
+                    if role_name in roles:
+                        acl_permissions.add(permission)
+
+        # Combinar todas as permissões
+        combined_permissions = list(role_permissions.union(acl_permissions))
+
+        return jsonify(combined_permissions), 200
 
     @staticmethod
     def list_permission_roles(session_key, permission_name):
