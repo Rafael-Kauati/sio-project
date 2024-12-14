@@ -1555,7 +1555,7 @@ if args.command == "rep_list_role_permissions":
     }
 
     # Enviar a requisição GET com a session_key e nonce no cabeçalho
-    response = requests.post(url, headers=headers)
+    response = requests.get(url, headers=headers)
 
     # Retornar a resposta em formato JSON
     print(response.json())
