@@ -142,7 +142,6 @@ bash rep_decrypt_file "output" "test_encryption_data.json"
 
 To delete document :
 ```bash
-
 bash rep_delete_doc "session_file" "test"
 ```
 
@@ -150,21 +149,18 @@ bash rep_delete_doc "session_file" "test"
 To list roles of current session :
 
 ```bash
-
 bash rep_list_roles "session_file"
 ```
 
 To create a new in the organization of current session :
 
 ```bash
-
 bash rep_add_role "session_file" "new_role"
  ```
 
 To create assume a role in the organization of current session :
 
 ```bash
-
 bash rep_assume_role "session_file" "new_role"
  ```
 
@@ -172,7 +168,6 @@ bash rep_assume_role "session_file" "new_role"
 To create realease a role in the organization of current session :
 
 ```bash
-
 bash rep_drop_role "session_file" "new_role"
  ```
 
@@ -184,6 +179,12 @@ bash rep_remove_permission "session_file" "new_role" "gabs"
 bash rep_add_permission "session_file" "new_role" "SUBJECT_NEW"
 bash rep_remove_permission "session_file" "new_role" "SUBJECT_NEW"
 ```
+
+To list the permissions of a give role of current session :
+
+```bash
+ bash rep_list_role_permissions "session_file" "new_role"
+ ```
 
 To suspend or reactivate a role  :
 
