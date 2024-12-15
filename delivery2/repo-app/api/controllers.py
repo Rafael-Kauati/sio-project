@@ -116,7 +116,10 @@ def has_permission_in_document(session_key, permission_name, document_name):
     if not subject:
         print("[DEBUG] Subject não encontrado para esta sessão.")
         return False
-
+    for role in subject.roles:
+        if role.name == "Manager":
+            print("[DEBUG] Role 'Manager' tem acesso total ao documento.")
+            return True
     # Validar o nome da permissão
     valid_permissions = ["DOC_DELETE", "DOC_READ"]
     if permission_name not in valid_permissions:
