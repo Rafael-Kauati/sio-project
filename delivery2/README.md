@@ -37,9 +37,17 @@ or simply run the below script that starts the DB authomatically (it also cleans
 
 ### In other terminal, Create and install all the dependencies of the virtual env with the venv-and-install.sh file at the delivery2/repo-app/:
 
+For linux or mac : 
 ```bash
 . venv-and-install.sh
 ```
+
+For windows : 
+```bash
+. venv-and-install-windows.sh
+```
+
+
 ### and enter the virtual env there: 
 ```bash
 source venv/bin/activate
