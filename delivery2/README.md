@@ -184,7 +184,13 @@ To list the permissions of a give role of current session :
 
 ```bash
  bash rep_list_role_permissions "session_file" "new_role"
- ```
+```
+
+To list the roles of a given subject in my organization :
+
+```bash
+ bash rep_list_subject_roles "session_file" "gabs"
+```
 
 To suspend or reactivate a role  :
 

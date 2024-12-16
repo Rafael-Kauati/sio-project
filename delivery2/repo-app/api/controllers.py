@@ -1314,18 +1314,22 @@ class SessionController:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
         # Obter o subject associado à sessão
-        subject = session.subject
-        if not subject:
+        session_subject = session.subject
+        if not session_subject:
             return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
-        
+
         # Buscar o subject pelo username
         subject = Subject.query.filter_by(username=p_Username).first()
         if not subject:
             return jsonify({"error": f"Subject com username '{p_Username}' não encontrado"}), 404
 
-        # buscar os roles do user
-        userRoles = subject.roles.query.all()
-        return jsonify([role.name for role in userRoles]), 200
+        # Obter as roles associadas ao subject
+        user_roles = subject.roles  # Relacionamento direto do modelo Subject
+        if not user_roles:
+            return jsonify({"message": "Nenhuma role associada ao subject"}), 200
+
+        # Retornar a lista de nomes das roles associadas
+        return jsonify([role.name for role in user_roles]), 200
 
     @staticmethod
     def list_role_permissions(session_key, role_name):
