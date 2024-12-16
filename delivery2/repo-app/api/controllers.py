@@ -1292,9 +1292,13 @@ class SessionController:
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
 
+        # Certificar-se de que a sessão retorna o objeto correto
+        if not hasattr(session, "subject"):
+            return jsonify({"error": "Formato de sessão inválido ou campo 'subject' ausente"}), 500
+
         # Obter o subject associado à sessão
-        subject = session.subject
-        if not subject:
+        session_subject = session.subject
+        if not session_subject:
             return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
 
         # Buscar a role na organização
@@ -1302,9 +1306,13 @@ class SessionController:
         if not role:
             return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
 
-        # Buscar os subjects da role dentro da organização
-        subjects = role.subjects.query.all()
-        return jsonify([user.username for user in subjects]), 200
+        # Obter os subjects associados à role
+        subjects = role.subjects  # Relacionamento direto do modelo Role
+        if not subjects:
+            return jsonify({"message": "Nenhum subject associado a esta role"}), 200
+
+        # Retornar a lista de usernames dos subjects associados
+        return jsonify([subject.username for subject in subjects]), 200
 
     @staticmethod
     def list_subject_roles(session_key, p_Username):
