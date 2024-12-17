@@ -110,6 +110,7 @@ with app.app_context():
         {"name": "DOC_WRITE", "description": "Permission to write document contents."},
         {"name": "DOC_DELETE", "description": "Permission to delete document contents."},
         {"name": "ROLE_ACL", "description": "Permission to modify the role's ACL."},
+        {"name": "DOC_ACL", "description": "Permission to modify the document's ACL."},
         {"name": "SUBJECT_NEW", "description": "Permission to add a new subject."},
         {"name": "SUBJECT_DOWN", "description": "Permission to suspend a subject."},
         {"name": "SUBJECT_UP", "description": "Permission to reactivate a subject."},

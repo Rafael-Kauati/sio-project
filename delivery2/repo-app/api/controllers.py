@@ -896,6 +896,9 @@ class SessionController:
             if not organization:
                 return jsonify({"error": "Organização não encontrada para esta sessão"}), 404
 
+            if not has_permission(session_key, "DOC_ACL"):
+                return {"error": "Subject must have DOC_ACL permission to perform this operation"}, 404
+
             # Buscar o documento pelo nome e organização
             document = Document.query.filter_by(name=document_name, organization_id=organization.id).first()
             if not document:
