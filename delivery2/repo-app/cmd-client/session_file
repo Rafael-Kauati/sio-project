@@ -1,10 +1,10 @@
 {
     "message": "Session created successfully",
     "session_context": {
-        "nonce": "HXwfK2zLONMQG3WiDS4zaXvm1DJHg7xX",
+        "nonce": "88wqzl2CiGpEmFcBZ46Kk3aWDNgpJCVT",
         "organization_name": "Org4",
-        "session_id": 7,
-        "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uX2lkIjo3LCJvcmdhbml6YXRpb25fbmFtZSI6Ik9yZzQiLCJzdWJqZWN0X3VzZXJuYW1lIjoiYW5vbjMiLCJpYXQiOjE3MzQ0NjQyMjgsImV4cCI6MTczNDQ2NjAyOCwianRpIjoiZWQ3NTU5ZTQtZjUzMS00M2Y4LTg2Y2YtYzA0ODAxNmIxNDlmIn0.rdc5pF0yI-VJMtZX3ThIy-9ykKy3X_2MujqRzy_so7Y",
-        "subject_username": "anon3"
+        "session_id": 2,
+        "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uX2lkIjoyLCJvcmdhbml6YXRpb25fbmFtZSI6Ik9yZzQiLCJzdWJqZWN0X3VzZXJuYW1lIjoiZ2FicyIsImlhdCI6MTczNDQ0OTUzNywiZXhwIjoxNzM0NDUxMzM3LCJqdGkiOiI3NDhiZWIzMC1kZjViLTQwZTItOGU3My1jNzRiMWFjZmU2NGEifQ.SWbNDkuoHcuqqPYCikL7kL5HeIupJI-PvoGBPj3h6vs",
+        "subject_username": "gabs"
     }
 }
