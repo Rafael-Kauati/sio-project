@@ -323,7 +323,7 @@ def list_role_permissions_route():
 # params [sessionFile] [permission]
 @main_bp.route('/sessions/list_permission_roles', methods=['GET'])
 def list_permission_roles_route():
-
+    print('ROUTES PRINT')
     logger.info("Request to list role permissions received.")
 
     encrypted_key_info = request.headers.get("X-Encrypted-Key-Info")

@@ -1564,6 +1564,7 @@ if args.command == "rep_list_role_permissions":
 if args.command == "rep_list_permission_roles":
     session_file = command_args.session_file
     permission = command_args.permission
+    
     with open(session_file, 'r') as file:
         session_data = json.load(file)
         session_key = session_data["session_context"]["session_token"]
@@ -1597,8 +1598,8 @@ if args.command == "rep_list_permission_roles":
     }
 
     # Enviar a requisição GET com a session_key e nonce no cabeçalho
-    response = requests.post(url, headers=headers)
-
+    response = requests.get(url, headers=headers)
+    
     # Retornar a resposta em formato JSON
     print(response.json())
 

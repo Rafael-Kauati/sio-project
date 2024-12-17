@@ -1378,21 +1378,23 @@ class SessionController:
     @staticmethod
     def list_permission_roles(session_key, permission_name):
         # Verificar a sessão
+        
         session = check_session(session_key)
         if session is None:
             return jsonify({"error": "Sessão inválida ou não encontrada"}), 404
-
+        
         # Obter o subject associado à sessão
         subject = session.subject
         if not subject:
             return jsonify({"error": "Subject não encontrado para esta sessão"}), 404
 
         # Validar a permissão
-        permission = Permission.query.filter_by(name=permission_name, organization_id=session.organization_id).first()
+        permission = Permission.query.filter_by(name=permission_name).first()
         if not permission:
             return jsonify({"error": f"Permissão '{permission_name}' não encontrada na organização"}), 404
 
-        #Obter os roles dentro da organização que contém a permissão dada
-        permissionRoles = permission.roles.query.all()
+        #Roles associados à permissão
+        permissionRoles = [role_permission.role for role_permission in permission.roles]
+
         return jsonify([role.name for role in permissionRoles]), 200
         
