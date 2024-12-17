@@ -165,22 +165,7 @@ To create a new in the organization of current session :
 ```bash
 bash rep_add_role "session_file" "new_role"
  ```
-
-To create assume a role in the organization of current session :
-
-```bash
-bash rep_assume_role "session_file" "new_role"
- ```
-
-
-To create realease a role in the organization of current session :
-
-```bash
-bash rep_drop_role "session_file" "new_role"
- ```
-
 To add/remove permissions of a role or add/remove access of a role for a give subject  :
-
 ```bash
 bash rep_add_permission "session_file" "new_role" "gabs"
 bash rep_remove_permission "session_file" "new_role" "gabs"
@@ -188,10 +173,30 @@ bash rep_add_permission "session_file" "new_role" "SUBJECT_NEW"
 bash rep_remove_permission "session_file" "new_role" "SUBJECT_NEW"
 ```
 
+To assume a role in the organization of current session :
+
+```bash
+bash rep_assume_role "session_file" "new_role"
+ ```
+
+
+To release a role in the organization of current session :
+
+```bash
+bash rep_drop_role "session_file" "new_role"
+ ```
+
+
 To list the permissions of a give role of current session :
 
 ```bash
  bash rep_list_role_permissions "session_file" "new_role"
+```
+
+To list the roles that hold a given permission of current session :
+
+```bash
+bash rep_list_permission_roles "session_file" "DOC_READ"
 ```
 
 To list the roles of a given subject in my organization :
