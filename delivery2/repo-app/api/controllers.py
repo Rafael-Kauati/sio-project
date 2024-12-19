@@ -88,10 +88,10 @@ def has_permission(session_key, permission_name):
             print(f"[DEBUG] Role '{role.name}' não pertence à organização da sessão. Ignorando.")
             continue
 
-        # Verificar se a role está suspensa
+        '''# Verificar se a role está suspensa
         if role.is_suspended:
             print(f"[DEBUG] Role '{role.name}' está suspensa. Ignorando.")
-            continue
+            continue'''
 
         # Verificar se a role tem a permissão específica
         if any(rp.permission_id == permission.id for rp in role.permissions):
@@ -160,10 +160,10 @@ def has_permission_in_document(session_key, permission_name, document_name):
             continue
 
         # Verificar se a role está suspensa
-        if role.is_suspended:
+        '''if role.is_suspended:
             print(f"[DEBUG] Role '{role.name}' está suspensa. Ignorando.")
             continue
-
+'''
         # Verificar se a role contém a permissão necessária
         role_permissions = [perm.permission.name for perm in role.permissions]
         print(f"[DEBUG] permissions  : {role_permissions}")
@@ -1190,6 +1190,10 @@ class SessionController:
         role = Role.query.filter_by(name=role_name, organization_id=session.organization_id).first()
         if not role:
             return jsonify({"error": f"Role '{role_name}' não encontrada na organização"}), 404
+
+        # Verificar se a role está suspensa
+        if role.is_suspended:
+            return jsonify({"error": f"Role '{role_name}' está suspensa e não pode ser assumida"}), 403
 
         # Verificar se a role está acessível para o subject
         if role not in subject.accessible_roles:
