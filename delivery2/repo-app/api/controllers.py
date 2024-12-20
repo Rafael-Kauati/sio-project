@@ -592,12 +592,11 @@ class SessionController:
 
         # Cria um novo documento, incluindo o campo `encryption_vars`
         new_document = Document(
-            # document_handle=file_name,
             name=file_name,
             create_date=datetime.now(),
             creator=subject.username,
             file_handle=file_handle,
-            acl={},
+            acl={},  # Inicialmente sem ACL
             organization_id=organization.id,
             encrypted_file_key=encrypted_file_key,  # Salva a chave de criptografia criptografada
             iv=iv,  # Armazena o IV diretamente
@@ -606,9 +605,17 @@ class SessionController:
             encryption_vars=json.loads(encryption_vars)  # Converte o JSON de string para dicionário e armazena
         )
 
-        # Adiciona e salva o documento no banco de dados
+        # Adiciona o documento ao banco de dados
         db.session.add(new_document)
         db.session.commit()
+
+        # Adiciona a role "manager" ao ACL do documento para DOC_READ e DOC_DELETE
+        role_manager = Role.query.filter_by(name="manager", organization_id=organization.id).first()
+        if role_manager:
+            # Adiciona a role manager para as permissões DOC_READ e DOC_DELETE
+            new_document.acl['DOC_READ'] = [role_manager.name]
+            new_document.acl['DOC_DELETE'] = [role_manager.name]
+            db.session.commit()
 
         return {"message": "Documento adicionado com sucesso",
                 "document_id": new_document.id, "new_nonce": new_nonce}, 201
